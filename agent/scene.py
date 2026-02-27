@@ -1,0 +1,92 @@
+# agent/scene.py
+"""Scene loader — manages the currently active scene's band data and metadata.
+
+Call `load_scene("scene_a")` before using any tool.
+Tools access bands via `get_band()` rather than reading disk directly.
+"""
+import json
+import numpy as np
+from pathlib import Path
+from agent.types import BoundingBox
+
+_CURRENT_SCENE: dict = {}
+_CURRENT_META: dict = {}
+_CURRENT_BASELINE: dict = {}
+_SCENES_DIR = Path("data/scenes")
+
+
+def load_scene(scene_id: str) -> None:
+    """Load a scene into module-level state. Must be called before using tools."""
+    global _CURRENT_SCENE, _CURRENT_META, _CURRENT_BASELINE
+    bands_path = _SCENES_DIR / f"{scene_id}_bands.npy"
+    meta_path = _SCENES_DIR / f"{scene_id}_metadata.json"
+    if not bands_path.exists():
+        raise FileNotFoundError(f"Scene bands not found: {bands_path}")
+    _CURRENT_SCENE = np.load(bands_path, allow_pickle=True).item()
+    _CURRENT_META = json.loads(meta_path.read_text())
+    baseline_path = _SCENES_DIR / f"{scene_id}_baseline_bands.npy"
+    _CURRENT_BASELINE = (
+        np.load(baseline_path, allow_pickle=True).item()
+        if baseline_path.exists() else {}
+    )
+
+
+def get_band(band_name: str, region: BoundingBox = None) -> np.ndarray:
+    """Return a band array, optionally cropped to a BoundingBox."""
+    if band_name not in _CURRENT_SCENE:
+        raise KeyError(
+            f"Band {band_name!r} not in current scene. "
+            f"Available: {sorted(_CURRENT_SCENE.keys())}"
+        )
+    arr = _CURRENT_SCENE[band_name]
+    if region is not None:
+        arr = arr[region.row_min:region.row_max, region.col_min:region.col_max]
+    return arr
+
+
+def get_baseline_band(band_name: str, region: BoundingBox = None) -> np.ndarray:
+    """Return a baseline band array. Raises FileNotFoundError if no baseline exists."""
+    if not _CURRENT_BASELINE:
+        raise FileNotFoundError(
+            "No baseline available for the current scene. "
+            f"Scene '{_CURRENT_META.get('scene_id')}' has has_baseline=False."
+        )
+    if band_name not in _CURRENT_BASELINE:
+        raise KeyError(f"Band {band_name!r} not in baseline scene.")
+    arr = _CURRENT_BASELINE[band_name]
+    if region is not None:
+        arr = arr[region.row_min:region.row_max, region.col_min:region.col_max]
+    return arr
+
+
+def get_metadata() -> dict:
+    """Return the current scene metadata dict."""
+    return _CURRENT_META
+
+
+def get_timeseries_ndvi(row: int, col: int):
+    """Return (dates, ndvi_values) timeseries for a pixel.
+
+    Uses the nearest stored point from scene metadata — either the
+    stressed_point, healthy_point, or representative_point.
+    """
+    ts = _CURRENT_META.get("timeseries", {})
+    dates = ts.get("dates", [])
+    if "stressed_point" in ts:
+        sp = ts["stressed_point"]
+        hp = ts.get("healthy_point", sp)
+        dist_s = abs(row - sp["row"]) + abs(col - sp["col"])
+        dist_h = abs(row - hp["row"]) + abs(col - hp["col"])
+        ndvi_vals = sp["ndvi"] if dist_s <= dist_h else hp["ndvi"]
+    elif "representative_point" in ts:
+        ndvi_vals = ts["representative_point"]["ndvi"]
+    else:
+        ndvi_vals = [0.5] * len(dates)
+    return dates, ndvi_vals
+
+
+def scene_shape() -> tuple:
+    """Return (height, width) of the current scene."""
+    if not _CURRENT_SCENE:
+        raise RuntimeError("No scene loaded. Call load_scene() first.")
+    return next(iter(_CURRENT_SCENE.values())).shape
