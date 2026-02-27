@@ -1,0 +1,40 @@
+{
+  "scene_id": "scene_b",
+  "date": "2023-07-15",
+  "region": "Central Valley, CA (synthetic)",
+  "bands": [
+    "B02",
+    "B03",
+    "B04",
+    "B08",
+    "B8A",
+    "B11",
+    "B12"
+  ],
+  "shape": [
+    200,
+    200
+  ],
+  "pixel_size_m": 10,
+  "has_baseline": false,
+  "timeseries": {
+    "dates": [
+      "2023-05-15",
+      "2023-06-01",
+      "2023-06-15",
+      "2023-07-01",
+      "2023-07-15"
+    ],
+    "representative_point": {
+      "row": 100,
+      "col": 100,
+      "ndvi": [
+        0.45,
+        0.46,
+        0.44,
+        0.43,
+        0.44
+      ]
+    }
+  }
+}
