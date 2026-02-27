@@ -1,0 +1,93 @@
+{
+  "scene_id": "scene_a",
+  "description": "Pre-recorded agent trace for Scene A: water stress in NW quadrant",
+  "turns": [
+    {
+      "stop_reason": "tool_use",
+      "content": [
+        {
+          "type": "text",
+          "text": "I'll begin with a broad NDVI assessment to understand the overall vegetation health before looking at specific anomalies."
+        },
+        {
+          "type": "tool_use",
+          "id": "mock_01",
+          "name": "compute_ndvi",
+          "input": {"region": {"row_min": 0, "row_max": 200, "col_min": 0, "col_max": 200}}
+        }
+      ]
+    },
+    {
+      "stop_reason": "tool_use",
+      "content": [
+        {
+          "type": "text",
+          "text": "The NDVI shows a significant stressed area (>25% of pixels below 0.3). I'll flag the anomalous regions to get precise bounding boxes."
+        },
+        {
+          "type": "tool_use",
+          "id": "mock_02",
+          "name": "flag_anomalous_regions",
+          "input": {"index": "ndvi", "threshold": 0.4, "direction": "below"}
+        }
+      ]
+    },
+    {
+      "stop_reason": "tool_use",
+      "content": [
+        {
+          "type": "text",
+          "text": "The anomaly is concentrated in the northwest quadrant (rows 0-100, cols 0-100). I'll compute NDWI for this region to determine if this is water stress or another form of stress."
+        },
+        {
+          "type": "tool_use",
+          "id": "mock_03",
+          "name": "compute_ndwi",
+          "input": {"region": {"row_min": 0, "row_max": 100, "col_min": 0, "col_max": 100}}
+        }
+      ]
+    },
+    {
+      "stop_reason": "tool_use",
+      "content": [
+        {
+          "type": "text",
+          "text": "NDWI is strongly negative in the NW quadrant, confirming water stress rather than nutrient or pest issues. I'll check the timeseries to determine if this is a recent onset or a persistent condition."
+        },
+        {
+          "type": "tool_use",
+          "id": "mock_04",
+          "name": "get_pixel_timeseries",
+          "input": {"lat": 50, "lon": 50, "index": "ndvi"}
+        }
+      ]
+    },
+    {
+      "stop_reason": "tool_use",
+      "content": [
+        {
+          "type": "text",
+          "text": "The timeseries shows a sharp NDVI decline in the last 2-3 weeks — recent onset. I'll compare against the baseline to quantify the change."
+        },
+        {
+          "type": "tool_use",
+          "id": "mock_05",
+          "name": "compare_to_baseline",
+          "input": {
+            "region": {"row_min": 0, "row_max": 100, "col_min": 0, "col_max": 100},
+            "index": "ndvi"
+          }
+        }
+      ]
+    },
+    {
+      "stop_reason": "end_turn",
+      "content": [
+        {
+          "type": "text",
+          "text": "## Crop Health Diagnostic Report\n\n**Summary of findings:**\nSignificant vegetation stress in the northwest quadrant (rows 0\u2013100, cols 0\u2013100), affecting ~25% of the total scene area.\n\n**Specific locations of concern:**\n- Northwest quadrant: mean NDVI dropped from ~0.65 (baseline) to ~0.25 (current), a \u0394 \u2248 \u22120.40.\n\n**Likely cause: Water stress (HIGH confidence)**\n- NDWI is strongly negative (< \u22120.2) in the affected area \u2014 reduced canopy water content.\n- Timeseries shows a sharp NDVI decline over the past 2\u20133 weeks, consistent with irrigation failure or drought onset, not seasonal phenology.\n- Baseline comparison confirms the NW quadrant was healthy 30 days ago.\n\n**Recommended follow-up actions:**\n1. Inspect irrigation infrastructure in the northwest quadrant immediately.\n2. Check field water meters and irrigation schedules for the past month.\n3. Consider emergency irrigation if crops are at a critical growth stage.\n4. Re-assess in 7\u201310 days after intervention to monitor recovery."
+        }
+      ]
+    }
+  ]
+}
