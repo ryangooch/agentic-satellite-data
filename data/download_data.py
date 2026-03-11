@@ -6,6 +6,7 @@ this script is for students who want to experiment with real satellite data.
 
 Requirements: pip install sentinelsat
 API registration: https://dataspace.copernicus.eu/
+Viewing the data: https://browser.dataspace.copernicus.eu
 """
 import argparse
 import sys
