@@ -6,7 +6,7 @@ applied to Sentinel-2 satellite imagery.
 ## Quick Start
 
 ```bash
-pip install -r requirements.txt
+uv sync
 make demo          # Run Scene A in mock mode — no API key needed
 ```
 
@@ -19,14 +19,30 @@ make demo          # Run Scene A in mock mode — no API key needed
 
 ## Live API Runs
 
+### Obtaining your Anthropic API Key
+
+Sign in to `platform.claude.com` with your credentials, then create your key there.
+
+Put the key in the `.env` file as such:
+
+```
+ANTHROPIC_API_KEY=sk-ant-api03-...
+```
+
+### Running the Loop
 Set `ANTHROPIC_API_KEY` in your environment, then:
 
 ```bash
-python -m agent.loop --scene scene_a
-python -m agent.loop --scene scene_b
+uv run python -m agent.loop --scene scene_a
+uv run python -m agent.loop --scene scene_b
 ```
 
 Estimated cost: $0.10–0.30 per run with `claude-sonnet-4-6`.
+
+Sonnet is excellent at most reasoning and coding-related tasks while being much cheaper than Opus,
+so it's a good idea to start with Sonnet (or even Haiku) to see if it works for your needs before
+going to the most expensive and highest quality model.
+
 
 ## Running Tests
 
