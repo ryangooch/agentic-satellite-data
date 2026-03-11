@@ -82,6 +82,7 @@ def run_agent(
             model=MODEL,
             system=SYSTEM_PROMPT,
             tools=TOOL_SCHEMAS,
+            cache_control={"type": "ephemeral"},
             messages=messages,
             temperature=temperature,
             max_tokens=4096,
