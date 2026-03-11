@@ -27,26 +27,41 @@ channel bands, made available in the form of functions (tools).
 
 ## Agenda
 
-**Part 1 — The Signal Processing Domain** _(~10 min)_
+**Part 1 -- The Signal Processing Domain** _(~10 min)_
 - Sentinel-2 satellite imagery
 - Spectral indices: NDVI, NDWI, EVI
 - The ambiguity problem
 
-**Part 2 — Why an Agent?** _(~10 min)_
+**Part 2 -- Why an Agent?** _(~10 min)_
 - Fixed pipelines, deep learning, and where they break
 - Agents vs. bespoke models: real tradeoffs
 
-**Part 3 — How Agents Work** _(~12 min)_
+**Part 3 -- How Agents Work** _(~12 min)_
 - Tool calling at the API level
 - The ReAct framework
 - The loop (~80 lines of real code)
 
-**Part 4 — Modern Research** _(~8 min)_
+**Part 4 -- Modern Research** _(~8 min)_
 - Foundation models for Earth observation
 - Multi-agent systems, MCP, HITL
 - Open problems and research frontiers
 
 **Then: live demo** _(~30 min)_
+
+---
+
+## Why Satellite Imagery?
+
+Remote sensing for agriculture has been an active research area since the 1970s (Landsat).
+Sentinel-2 made high-resolution multi-spectral data free and globally available.
+
+- Millions of pixels per tile, updated every 5 days globally
+- 13 spectral bands
+    - each band measures a different wavelength range
+    - each correlated with different physical properties of the surface
+- Temporal stack: changes between acquisitions often more diagnostic than any single image
+
+The volume and dimensionality of this data imposes challenges of scale and velocity
 
 ---
 
@@ -80,7 +95,7 @@ B11   | SWIR-1       | 1610   | 20m  | Soil moisture, plant water
 B12   | SWIR-2       | 2190   | 20m  | Dry biomass, geology
 ```
 
-_Healthy plants absorb red and reflect NIR — the key signature we exploit._
+_Healthy plants absorb red and reflect NIR -- the key signature we exploit._
 
 ---
 
@@ -179,6 +194,11 @@ NDWI = (Green - SWIR) / (Green + SWIR)
 → crop is structurally intact but already experiencing water stress
 → NDWI catches stress earlier than NDVI
 
+**Why earlier?** NDVI tracks canopy greenness and structure (chlorophyll + leaf area).
+NDWI is more directly sensitive to liquid water in the leaf's spongy mesophyll -- the
+loosely-packed cell layer where water is lost first under stress, before visible
+wilting or chlorophyll breakdown begins.
+
 ---
 
 ## EVI: When NDVI Saturates
@@ -202,18 +222,6 @@ where C1 and C2 are tuneable parameters
 
 ---
 
-## Measurement Variables
-
-* Backscattering Coefficient
-* Polarizations
-  * HH
-  * VV
-  * VH
-* Radar "texture" (structural similarity)
-* Coherence (intra-view consistency, like rho_hv)
-
----
-
 ## What Crop Stress Looks Like Spectrally
 
 | Stress type | NDVI | NDWI | EVI | Other signals |
@@ -221,7 +229,7 @@ where C1 and C2 are tuneable parameters
 | Water stress | ↓ moderate | ↓ early | ↓ | Thermal: warmer canopy |
 | Nutrient deficiency | ↓ patchy | normal | ↓ patchy | Red-edge shift |
 | Pest/disease | ↓ localized | varies | ↓ | Rapid change in timeseries |
-| Healthy | high, stable | positive | moderate-high | — |
+| Healthy | high, stable | positive | moderate-high | -- |
 
 **The core problem**: stress signatures _overlap spectrally_
 
@@ -284,10 +292,10 @@ if ndvi.mean < 0.35:
 ```
 
 Shortcomings:
-- Generalizing from training data
-- Not adaptable
-- Optionally referencing past time points
-- Modeling Uncertainty
+- Threshold is arbitrary -- wrong for every crop/season combination
+- No temporal context -- can't distinguish new stress from chronic
+- No uncertainty -- outputs an alert or nothing, never "probably"
+- Can't integrate multiple signals -- NDVI alone doesn't distinguish water stress from senescence
 
 ---
 
@@ -312,7 +320,7 @@ Shortcomings:
 - Needs labeled training data per crop type, region, season
 - Black box
 - Hard to update when sensor changes or new indices are added
-- Doesn't reason about uncertainty — it produces a label
+- Doesn't reason about uncertainty -- it produces a label
 - **Can't call external tools (timeseries DB, crop calendar, weather)**
 
 _Deep learning is excellent for perception; it's less suited for the reasoning layer._
@@ -394,7 +402,7 @@ Q: what sticks out to you about this approach? benefits? weaknesses?
 ## Tool = JSON Schema + Python Function
 
 ```python
-# In tools.py — just a function
+# In tools.py -- just a function
 def compute_ndvi(region: BoundingBox) -> NDVIResult:
     """Compute NDVI = (NIR - Red) / (NIR + Red)."""
     nir  = scene.get_band("B08", region)
@@ -436,7 +444,7 @@ The core idea: interleave **thought** and **action** in the context window.
 
 ```
 Thought: NDVI mean is 0.31, with 23% of pixels below 0.3.
-         This is concerning — let me check water content.
+         This is concerning -- let me check water content.
 Action:  compute_ndwi(region)
 Obs:     mean NDWI = -0.18. Status: water-stressed.
 
@@ -462,7 +470,7 @@ Your workflow:
 1. Start with a broad assessment (e.g., compute NDVI for the region)
 2. If you detect anomalies, investigate further
 3. Explain your reasoning before each tool call
-4. Only call tools when warranted — you do not need all of them
+4. Only call tools when warranted -- you do not need all of them
 5. If tools return errors, adapt your strategy
 6. When done, write a diagnostic report with:
    - Summary of findings
@@ -527,7 +535,7 @@ for _ in range(MAX_ITERATIONS):
 
 [TOOL CALL] get_pixel_timeseries
 [INPUT]  {"lat": 96, "lon": 160, "index": "ndvi"}
-[RESULT] NDVI declining (Δ≈-0.17 — possible recent stress onset).
+[RESULT] NDVI declining (Δ≈-0.17 -- possible recent stress onset).
 
 ============================================================
 FINAL REPORT
@@ -548,13 +556,13 @@ User request
 └──────┬──────┘                            └──────────────────┘
        │
        ▼ dispatch_tool(name, input)
-┌─--─────────────────────────────────────────┐
+┌────────────────────────────────────────────┐
 │               tools.py                     │
 │  compute_ndvi   compute_ndwi   compute_evi │
 │  flag_anomalous_regions                    │
 │  get_pixel_timeseries                      │
 │  compare_to_baseline                       │
-└───────────────┬───────────--───────────────┘
+└───────────────┬────────────────────────────┘
                 │
                 ▼
          scene.py (synthetic Sentinel-2 data)
@@ -575,18 +583,18 @@ User request
 | `compare_to_baseline` | Diff current vs. earlier date | Quantify change, confirm onset |
 
 Design rules:
-- Tools are **flat** — no tool calls another tool
-- Tools **never raise** — return `success=False` with an error message
+- Tools are **flat** -- no tool calls another tool
+- Tools **never raise** -- return `success=False` with an error message
 - Every tool returns a `summary` string → that's what goes into the context window
 
 ---
 
 ## Now: Demo
 
-**Scene A** — scripted walkthrough (temperature=0)
+**Scene A** -- scripted walkthrough (temperature=0)
 _We'll read the trace together and ask: why did it call that? what did it learn?_
 
-**Scene B** — live run
+**Scene B** -- live run
 _Same agent, different data. Watch it take a different path._
 
 ```bash
@@ -605,7 +613,7 @@ LLMs are not the only foundation model in this space.
 
 **Prithvi** (NASA + IBM, 2023)
 - 300M-parameter vision transformer pre-trained on Harmonized Landsat Sentinel-2 (HLS) data
-- Multi-temporal, multi-spectral — understands temporal change natively
+- Multi-temporal, multi-spectral -- understands temporal change natively
 - Fine-tuned for flood mapping, crop segmentation, wildfire scars
 
 **SatMAE** (Cong et al., 2022)
@@ -616,7 +624,7 @@ LLMs are not the only foundation model in this space.
 - CLIP-style vision-language model for satellite images
 - Enables zero-shot scene understanding from natural language queries
 
-_These are the "perception" layer — the deep learning models that agents could invoke as tools._
+_These are the "perception" layer -- the deep learning models that agents could invoke as tools._
 
 ---
 
@@ -645,9 +653,9 @@ The agent:
 
 ## GeoAI and Agentic Remote Sensing: Active Research
 
-**GeoLLM** (Manvi et al., 2023) — augmenting LLMs with geospatial context
-**EarthGPT** (Zhang et al., 2024) — multimodal remote sensing understanding
-**AgriAgent** (various 2024 papers) — agents for precision agriculture
+**GeoLLM** (Manvi et al., 2023) -- augmenting LLMs with geospatial context
+**EarthGPT** (Zhang et al., 2024) -- multimodal remote sensing understanding
+**AgriAgent** (various 2024 papers) -- agents for precision agriculture
 
 **Open problems being actively researched**:
 
@@ -655,13 +663,13 @@ The agent:
 2. **Multi-temporal reasoning**: Understanding sequences of satellite images, not just single scenes
 3. **Sensor fusion**: Combining Sentinel-2, SAR (Sentinel-1), thermal (ECOSTRESS), weather data
 4. **Evaluation**: How do you score an agent's reasoning process, not just its final answer?
-5. **Calibration**: Agents tend toward overconfidence — how do you quantify their uncertainty?
+5. **Calibration**: Agents tend toward overconfidence -- how do you quantify their uncertainty?
 
 ---
 
 ## Production Extensions: Where This Goes
 
-**MCP — Model Context Protocol** (Anthropic, 2024)
+**MCP -- Model Context Protocol**
 
 Define tools once; serve them over a network; use from any agent.
 
@@ -719,7 +727,7 @@ Current practice:
 
 ## Take-Home: Notebook 03
 
-**Failure modes** — where agents break, and what to do about it:
+**Failure modes** -- where agents break, and what to do about it:
 
 1. Bad tool description → agent misuses or ignores tool
 2. Unhandled tool exceptions → loop crashes
@@ -748,7 +756,7 @@ See `EXERCISES.md` for 5 take-home problems (add a new tool, modify the prompt, 
 - Liu et al. (2023). **RemoteCLIP: A Vision Language Foundation Model for Remote Sensing.** arXiv:2306.11029.
 - Manvi et al. (2023). **GeoLLM: Extracting Geospatial Knowledge from LLMs.** ICLR 2024.
 - Rouse et al. (1974). **Monitoring the vernal advancement of retrogradation of natural vegetation.** (Original NDVI paper.)
-- Gao (1996). **NDWI — A normalized difference water index for remote sensing of vegetation liquid water.** Remote Sensing of Environment.
+- Gao (1996). **NDWI -- A normalized difference water index for remote sensing of vegetation liquid water.** Remote Sensing of Environment.
 - Huete et al. (2002). **Overview of the radiometric and biophysical performance of the MODIS vegetation indices.** (EVI.)
 - Anthropic (2024). **Model Context Protocol.** modelcontextprotocol.io
 
@@ -756,18 +764,20 @@ See `EXERCISES.md` for 5 take-home problems (add a new tool, modify the prompt, 
 
 ## Questions?
 
-**Repo**: clone and run immediately — no data download required
+**Repo**: clone and run immediately -- no data download required
 
 ```bash
 git clone <repo>
 uv sync
-make demo       # Scene A, mock mode, no API key needed
+make demo                                    # Scene A, mock mode, no API key needed
+uv run python -m agent.loop --scene scene_a  # or run directly
+uv run python -m agent.loop --scene scene_b
 ```
 
 **Notebooks**:
-- `00_data_exploration.ipynb` — band visualization
-- `01_tools.ipynb` — tools as plain functions
-- `02_agent_loop.ipynb` — **start here**
-- `03_failure_modes.ipynb` — take-home
+- `00_data_exploration.ipynb` -- band visualization
+- `01_tools.ipynb` -- tools as plain functions
+- `02_agent_loop.ipynb` -- **start here**
+- `03_failure_modes.ipynb` -- take-home
 
 Estimated cost for all exercises: **$0.10–0.50** with `claude-sonnet-4-6`
