@@ -17,6 +17,7 @@ _SCENES_DIR = Path("data/scenes")
 
 def load_scene(scene_id: str) -> None:
     """Load a scene into module-level state. Must be called before using tools."""
+    # globals aren't super great practice in Python but we do it here to simplify the notebooks
     global _CURRENT_SCENE, _CURRENT_META, _CURRENT_BASELINE
     bands_path = _SCENES_DIR / f"{scene_id}_bands.npy"
     meta_path = _SCENES_DIR / f"{scene_id}_metadata.json"

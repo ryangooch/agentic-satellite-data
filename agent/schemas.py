@@ -2,7 +2,8 @@
 """JSON schemas for all tools, in the format required by the Anthropic Messages API.
 
 Passed directly to the `tools=` parameter of `client.messages.create()`.
-No framework required — these are plain Python dicts.
+We use plain Python dicts for simplicity, but in general you'll use other libraries for this,
+pydantic, or langgraph, etc.
 """
 
 _REGION = {

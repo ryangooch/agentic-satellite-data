@@ -1,7 +1,7 @@
 # agent/mock.py
 """Mock mode: replay pre-recorded agent traces without calling the Anthropic API.
 
-Real tool calls ARE executed (results are live), but model responses are canned.
+Real tool calls are executed (results are live), but model responses are canned.
 Useful for: offline demos, testing, cost control, reproducible lecture demonstrations.
 
 Pre-recorded responses: data/mock_responses/<scene_id>.json

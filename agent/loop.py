@@ -1,12 +1,13 @@
 # agent/loop.py
-"""The agent loop — the core teaching artifact.
+"""The agent loop
 
 This is the complete agentic pattern in ~80 lines:
   1. Call the model with messages + tool schemas
   2. If stop_reason == "tool_use": execute tools, append results, repeat
   3. If stop_reason == "end_turn": done
 
-No framework. No magic.
+Note: Frameworks handle this stuff in general, but it's easier to learn what's happening under
+the hood if we don't use a framework.
 """
 import json
 import os
@@ -20,16 +21,16 @@ from agent import tools as _tools
 
 MODEL = "claude-sonnet-4-6"
 
-SYSTEM_PROMPT = """You are an autonomous crop health analyst working with satellite imagery. \
+SYSTEM_PROMPT = """You are an autonomous crop health analyst working with satellite imagery.
 Your job is to assess crop health in a given region and produce a diagnostic report.
 
-You have access to tools that compute spectral indices (NDVI, NDWI, EVI), retrieve \
+You have access to tools that compute spectral indices (NDVI, NDWI, EVI), retrieve
 timeseries data, flag anomalous regions, and compare current conditions to historical baselines.
 
 **Your workflow**:
 1. Start with a broad assessment (e.g., compute NDVI for the region)
 2. If you detect anomalies or low values, investigate further using additional indices or timeseries
-3. Explain your reasoning in plain text before each tool call. Describe what you observed and why \
+3. Explain your reasoning in plain text before each tool call. Describe what you observed and why
 you're choosing the next tool.
 4. Only call tools when warranted by your observations. You do not need to use all available tools.
 5. If tools return errors, adapt your strategy and explain what happened.
@@ -40,8 +41,8 @@ you're choosing the next tool.
    - Recommended follow-up actions
 7. Express uncertainty when appropriate. If indices give conflicting signals, say so.
 
-**Important**: Be concise in your reasoning (2-3 sentences per tool call). \
-The goal is clarity, not verbosity."""
+**Important**: Be concise in your reasoning (2-3 sentences per tool call).
+"""
 
 _TOOL_MAP = {
     "compute_ndvi": _tools.compute_ndvi,

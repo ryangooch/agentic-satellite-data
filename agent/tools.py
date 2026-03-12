@@ -1,10 +1,10 @@
 # agent/tools.py
 """Tool implementations for the crop health agent.
 
-Design rules (also taught in lecture):
-- Each tool is a plain Python function — no framework.
-- Tools NEVER call other tools. Shared band math lives in `_compute_index_array`.
-- Return dataclasses with success/error fields — never raise exceptions.
+Design rules:
+- Each tool is a plain Python function.
+- Tools never call other tools. Shared band math lives in `_compute_index_array`.
+- Return dataclasses with success/error fields instead of raising exceptions.
 - Return a human-readable `summary` string for the agent's context window.
 """
 import numpy as np
@@ -245,7 +245,7 @@ def compare_to_baseline(region: BoundingBox, index: str) -> DiffResult:
     """Compare current index values against the stored baseline from an earlier date.
 
     Returns a change map and degraded-pixel fraction.
-    Returns an error result (does NOT raise) if no baseline exists for the scene.
+    Returns an error result if no baseline exists for the scene.
     """
     try:
         base_nir = _scene.get_baseline_band("B08", region)
@@ -263,7 +263,7 @@ def compare_to_baseline(region: BoundingBox, index: str) -> DiffResult:
 
     current_arr = _compute_index_array(index, region)
 
-    # Compute baseline index from raw bands (no tool call — tools stay flat)
+    # Compute baseline index from raw bands
     if index == "ndvi":
         baseline_arr = (base_nir - base_red) / (base_nir + base_red + 1e-8)
     elif index == "ndwi":

@@ -4,7 +4,7 @@
 
 Clone the repo, run `make setup`, then `make demo` to verify everything works.
 
-## Exercise 1: Add a New Tool (Easy)
+## Exercise 1: Add a New Tool
 
 **Goal:** Understand tool definition and integration.
 
@@ -25,7 +25,7 @@ SAVI = ((NIR - Red) / (NIR + Red + L)) * (1 + L)
 
 ---
 
-## Exercise 2: Modify the System Prompt (Medium)
+## Exercise 2: Modify the System Prompt
 
 **Goal:** Understand how instructions shape agent behavior.
 
@@ -44,7 +44,7 @@ Run Scene A with each. Compare:
 
 ---
 
-## Exercise 3: Error-Handling Tool (Medium)
+## Exercise 3: Error-Handling Tool
 
 **Goal:** Understand tool error handling and agent adaptation.
 
@@ -62,7 +62,7 @@ Modify the system prompt to suggest checking for baselines before comparing.
 
 ---
 
-## Exercise 4: Multi-Scene Comparison (Advanced)
+## Exercise 4: Multi-Scene Comparison
 
 **Goal:** Extend the agent to handle more complex workflows.
 
@@ -76,7 +76,7 @@ Options:
 
 ---
 
-## Exercise 5: Simple Evaluation (Advanced)
+## Exercise 5: Simple Evaluation
 
 **Goal:** Understand evaluation challenges for agentic systems.
 
