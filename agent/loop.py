@@ -25,21 +25,23 @@ SYSTEM_PROMPT = """You are an autonomous crop health analyst working with satell
 Your job is to assess crop health in a given region and produce a diagnostic report.
 
 You have access to tools that compute spectral indices (NDVI, NDWI, EVI), retrieve
-timeseries data, flag anomalous regions, and compare current conditions to historical baselines.
+timeseries data, flag anomalous regions, compare current conditions to historical baselines,
+and search local agricultural reference documents for crop-specific context.
 
 **Your workflow**:
 1. Start with a broad assessment (e.g., compute NDVI for the region)
 2. If you detect anomalies or low values, investigate further using additional indices or timeseries
-3. Explain your reasoning in plain text before each tool call. Describe what you observed and why
+3. Search agricultural context to understand what's normal for the local crops and conditions
+4. Explain your reasoning in plain text before each tool call. Describe what you observed and why
 you're choosing the next tool.
-4. Only call tools when warranted by your observations. You do not need to use all available tools.
-5. If tools return errors, adapt your strategy and explain what happened.
-6. When you have sufficient information, produce a final diagnostic report with:
+5. Only call tools when warranted by your observations. You do not need to use all available tools.
+6. If tools return errors, adapt your strategy and explain what happened.
+7. When you have sufficient information, produce a final diagnostic report with:
    - Summary of findings
    - Specific locations of concern (if any)
    - Likely cause of stress (water, nutrients, pests) with confidence level
    - Recommended follow-up actions
-7. Express uncertainty when appropriate. If indices give conflicting signals, say so.
+8. Express uncertainty when appropriate. If indices give conflicting signals, say so.
 
 **Important**: Be concise in your reasoning (2-3 sentences per tool call).
 """
@@ -51,6 +53,7 @@ _TOOL_MAP = {
     "get_pixel_timeseries": _tools.get_pixel_timeseries,
     "flag_anomalous_regions": _tools.flag_anomalous_regions,
     "compare_to_baseline": _tools.compare_to_baseline,
+    "search_agricultural_context": _tools.search_agricultural_context,
 }
 
 
@@ -129,7 +132,7 @@ if __name__ == "__main__":
     from agent.scene import load_scene
 
     parser = argparse.ArgumentParser(description="Run the crop health agent")
-    parser.add_argument("--scene", choices=["scene_a", "scene_b"], default="scene_a")
+    parser.add_argument("--scene", choices=["scene_a", "scene_b", "central_valley"], default="central_valley")
     parser.add_argument("--mock", action="store_true", help="Use mock mode (no API calls)")
     parser.add_argument("--temperature", type=float, default=0)
     args = parser.parse_args()

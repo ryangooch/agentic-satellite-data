@@ -18,6 +18,7 @@ from agent.types import (
     TimeseriesResult, AnomalyResult, DiffResult,
 )
 from agent import scene as _scene
+from agent import rag as _rag
 
 _IMAGES_DIR = Path("data/images")
 _IMAGES_DIR.mkdir(parents=True, exist_ok=True)
@@ -298,3 +299,14 @@ def compare_to_baseline(region: BoundingBox, index: str) -> DiffResult:
         success=True, diff_array=diff, mean_change=mean_change,
         degraded_fraction=degraded_frac, image_path=image_path, summary=summary,
     )
+
+
+def search_agricultural_context(query: str, top_k: int = 3) -> _rag.RAGResult:
+    """Search local agricultural reference documents for relevant context.
+
+    Searches county crop reports, UC Cooperative Extension bulletins,
+    water district advisories, and spectral index reference guides.
+    Use to get local growing context, interpret index values for specific crops,
+    or understand regional water/weather conditions.
+    """
+    return _rag.search_agricultural_context(query, top_k=top_k)

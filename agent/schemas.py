@@ -132,4 +132,29 @@ TOOL_SCHEMAS = [
             "required": ["region", "index"],
         },
     },
+    {
+        "name": "search_agricultural_context",
+        "description": (
+            "Search local agricultural reference documents for context relevant to your analysis. "
+            "Includes county crop reports, UC Cooperative Extension irrigation guides, "
+            "water district bulletins, and spectral index reference guides. "
+            "Use to understand local growing conditions, interpret indices for specific crops, "
+            "or get regional water/weather context."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Natural language question (e.g., 'what NDVI range is normal for almonds in July?')",
+                },
+                "top_k": {
+                    "type": "integer",
+                    "description": "Number of passages to return (default 3)",
+                    "default": 3,
+                },
+            },
+            "required": ["query"],
+        },
+    },
 ]

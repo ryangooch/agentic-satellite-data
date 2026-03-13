@@ -1,0 +1,72 @@
+{
+  "scene_id": "central_valley",
+  "date": "2024-05-20",
+  "region": "Central Valley, CA (36.944, -120.108)",
+  "bbox_wgs84": [
+    -120.11923980166482,
+    36.93501688825009,
+    -120.09676019833519,
+    36.952983111749916
+  ],
+  "center_lat": 36.944,
+  "center_lon": -120.108,
+  "aoi_size_m": 2000,
+  "bands": [
+    "B02",
+    "B03",
+    "B04",
+    "B08",
+    "B8A",
+    "B11",
+    "B12"
+  ],
+  "shape": [
+    200,
+    200
+  ],
+  "pixel_size_m": 10.0,
+  "source": "Sentinel-2 L2A via Microsoft Planetary Computer",
+  "current_scene_id": "S2A_MSIL2A_20240520T183921_R070_T10SGF_20240521T022234",
+  "has_baseline": true,
+  "baseline_date": "2024-05-15",
+  "baseline_scene_id": "S2B_MSIL2A_20240515T183919_R070_T11SKB_20240516T010933",
+  "timeseries": {
+    "dates": [
+      "2024-04-10",
+      "2024-04-20",
+      "2024-04-30",
+      "2024-05-10",
+      "2024-05-15",
+      "2024-05-20"
+    ],
+    "stressed_point": {
+      "row": 100,
+      "col": 100,
+      "ndvi": [
+        0.228,
+        0.151,
+        0.194,
+        0.183,
+        0.158,
+        0.168
+      ]
+    },
+    "healthy_point": {
+      "row": 50,
+      "col": 50,
+      "ndvi": [
+        0.4,
+        0.359,
+        0.363,
+        0.375,
+        0.387,
+        0.355
+      ]
+    }
+  },
+  "ground_truth": {
+    "error": "Client error '404 Not Found' for url 'https://nassgeodata.gmu.edu/CropScapeService/GetCDLValue?year=2024&x=-120.108&y=36.944'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+    "source": "USDA CropScape",
+    "year": 2024
+  }
+}
