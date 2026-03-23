@@ -1,4 +1,4 @@
-.PHONY: setup generate-data test demo download-data
+.PHONY: setup generate-data test demo fetch-data
 
 setup:
 	uv sync
@@ -6,11 +6,11 @@ setup:
 generate-data:
 	uv run python data/generate_scenes.py
 
+fetch-data:
+	uv run python data/fetch_sentinel2.py
+
 test: generate-data
 	uv run pytest tests/ -v
 
 demo: generate-data
 	uv run python -m agent.loop --scene scene_a --mock
-
-download-data:
-	uv run python data/download_data.py --region "37,-85.5,38,-84.5" --date "2023-07-15"
