@@ -119,29 +119,79 @@ def fetch_scene(item, bbox: list[float], target_size: int = 200) -> dict[str, np
 def fetch_cropscape_labels(bbox: list[float], year: int) -> dict:
     """Fetch USDA CropScape crop type labels for the AOI.
 
-    Uses the CroplandCROS REST API to get the dominant crop type.
+    Uses WMS GetMap to fetch a small CDL raster chip and returns the
+    dominant crop code with its name from the USDA CDL legend.
     """
     import httpx
+    from collections import Counter
+    from io import BytesIO
 
-    # CropScape GetCDLValue — point query for center of bbox
+    # Common CDL crop codes — subset covering Central Valley agriculture
+    CDL_NAMES = {
+        0: "Background", 1: "Corn", 2: "Cotton", 3: "Rice", 4: "Sorghum",
+        5: "Soybeans", 6: "Sunflower", 10: "Peanuts", 12: "Sweet Corn",
+        21: "Barley", 23: "Spring Wheat", 24: "Winter Wheat", 27: "Rye",
+        28: "Oats", 36: "Alfalfa", 37: "Other Hay/Non Alfalfa",
+        42: "Dry Beans", 49: "Onions", 53: "Peas", 54: "Tomatoes",
+        56: "Hops", 57: "Herbs", 58: "Clover/Wildflowers",
+        66: "Cherries", 67: "Peaches", 68: "Apples", 69: "Grapes",
+        72: "Citrus", 75: "Almonds", 76: "Walnuts", 77: "Pears",
+        92: "Aquaculture", 111: "Open Water", 121: "Developed/Open Space",
+        122: "Developed/Low Intensity", 123: "Developed/Medium Intensity",
+        124: "Developed/High Intensity", 131: "Barren",
+        141: "Deciduous Forest", 142: "Evergreen Forest",
+        143: "Mixed Forest", 152: "Shrubland",
+        171: "Grassland/Pasture", 176: "Grassland/Pasture",
+        190: "Woody Wetlands", 195: "Herbaceous Wetlands",
+        204: "Pistachios", 210: "Prunes", 211: "Olives",
+        212: "Oranges", 217: "Pomegranates", 218: "Nectarines",
+        220: "Plums", 227: "Lettuce",
+    }
+
     center_lat = (bbox[1] + bbox[3]) / 2
     center_lon = (bbox[0] + bbox[2]) / 2
-    url = (
-        f"https://nassgeodata.gmu.edu/CropScapeService/GetCDLValue"
-        f"?year={year}&x={center_lon}&y={center_lat}"
-    )
-    try:
-        resp = httpx.get(url, timeout=30)
-        resp.raise_for_status()
-        # Response is XML-ish, parse the crop name
-        text = resp.text
-        # Extract value from response like: <Result><CDLValue>...</CDLValue></Result>
-        if "cropname" in text.lower() or "category" in text.lower():
-            return {"raw_response": text, "source": "USDA CropScape", "year": year}
-        return {"raw_response": text, "source": "USDA CropScape", "year": year}
-    except Exception as e:
-        print(f"  Warning: CropScape query failed ({e}), continuing without ground truth")
-        return {"error": str(e), "source": "USDA CropScape", "year": year}
+    # Small bbox around center — ~200m square
+    d = 0.001
+    wms_bbox = f"{center_lon - d},{center_lat - d},{center_lon + d},{center_lat + d}"
+
+    # Try requested year first, then fall back to previous years
+    for try_year in [year, year - 1, year - 2]:
+        layer = f"cdl_{try_year}"
+        url = (
+            "https://nassgeodata.gmu.edu/CropScapeService/wms_cdlall.cgi"
+            f"?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS={layer}"
+            f"&SRS=EPSG:4326&BBOX={wms_bbox}&WIDTH=5&HEIGHT=5&FORMAT=image/tiff"
+        )
+        try:
+            resp = httpx.get(url, timeout=30)
+            if resp.status_code != 200 or "image/tiff" not in resp.headers.get("content-type", ""):
+                continue
+            data = np.frombuffer(resp.content, dtype=np.uint8)
+            # Parse TIFF with rasterio
+            with rasterio.open(BytesIO(resp.content)) as src:
+                arr = src.read(1)
+            # Find dominant non-zero crop code
+            codes = arr.flatten()
+            codes = codes[codes > 0]
+            if len(codes) == 0:
+                continue
+            dominant_code = Counter(codes.tolist()).most_common(1)[0][0]
+            crop_name = CDL_NAMES.get(dominant_code, f"Unknown (code {dominant_code})")
+            all_codes = Counter(codes.tolist()).most_common()
+            print(f"  CDL {try_year}: dominant crop = {crop_name} (code {dominant_code})")
+            return {
+                "crop_code": int(dominant_code),
+                "crop_name": crop_name,
+                "all_codes": {CDL_NAMES.get(c, f"code_{c}"): n for c, n in all_codes},
+                "source": "USDA CDL via WMS",
+                "year": try_year,
+            }
+        except Exception as e:
+            print(f"  Warning: CDL WMS query for {try_year} failed ({e})")
+            continue
+
+    print("  Warning: Could not fetch CDL labels for any recent year")
+    return {"error": "CDL WMS unavailable", "source": "USDA CDL via WMS", "year": year}
 
 
 def build_timeseries_metadata(items, bbox: list[float], target_size: int = 200) -> dict:

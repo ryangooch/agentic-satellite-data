@@ -1,6 +1,6 @@
 {
   "scene_id": "central_valley",
-  "date": "2024-05-20",
+  "date": "2025-05-15",
   "region": "Central Valley, CA (36.944, -120.108)",
   "bbox_wgs84": [
     -120.11923980166482,
@@ -26,47 +26,60 @@
   ],
   "pixel_size_m": 10.0,
   "source": "Sentinel-2 L2A via Microsoft Planetary Computer",
-  "current_scene_id": "S2A_MSIL2A_20240520T183921_R070_T10SGF_20240521T022234",
+  "current_scene_id": "S2C_MSIL2A_20250515T183941_R070_T11SKB_20250515T233917",
   "has_baseline": true,
-  "baseline_date": "2024-05-15",
-  "baseline_scene_id": "S2B_MSIL2A_20240515T183919_R070_T11SKB_20240516T010933",
+  "baseline_date": "2025-05-10",
+  "baseline_scene_id": "S2B_MSIL2A_20250510T183919_R070_T10SGF_20250510T220128",
   "timeseries": {
     "dates": [
-      "2024-04-10",
-      "2024-04-20",
-      "2024-04-30",
-      "2024-05-10",
-      "2024-05-15",
-      "2024-05-20"
+      "2025-04-10",
+      "2025-04-20",
+      "2025-05-05",
+      "2025-05-07",
+      "2025-05-10",
+      "2025-05-15"
     ],
     "stressed_point": {
       "row": 100,
       "col": 100,
       "ndvi": [
-        0.228,
-        0.151,
-        0.194,
-        0.183,
-        0.158,
-        0.168
+        0.207,
+        0.216,
+        0.197,
+        0.206,
+        0.185,
+        0.176
       ]
     },
     "healthy_point": {
       "row": 50,
       "col": 50,
       "ndvi": [
-        0.4,
-        0.359,
-        0.363,
-        0.375,
-        0.387,
-        0.355
+        0.362,
+        0.385,
+        0.379,
+        0.41,
+        0.385,
+        0.431
       ]
     }
   },
   "ground_truth": {
-    "error": "Client error '404 Not Found' for url 'https://nassgeodata.gmu.edu/CropScapeService/GetCDLValue?year=2024&x=-120.108&y=36.944'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
-    "source": "USDA CropScape",
-    "year": 2024
+    "crop_code": 121,
+    "crop_name": "Developed/Open Space",
+    "all_codes": {
+      "Developed/Open Space": 6,
+      "Grapes": 5,
+      "Developed/Low Intensity": 4,
+      "Developed/Medium Intensity": 2,
+      "Citrus": 2,
+      "Grassland/Pasture": 2,
+      "Cherries": 1,
+      "Pistachios": 1,
+      "code_22": 1,
+      "Peaches": 1
+    },
+    "source": "USDA CDL via WMS",
+    "year": 2025
   }
 }
