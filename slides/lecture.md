@@ -52,6 +52,9 @@ We will leverage other Agentic AI patterns as well, including RAG, MCP, and Agen
 - The ReAct framework
 
 **live demo**
+- Visualize the data
+- Examine the code
+- Run the agentic loop
 
 **Part 4 -- Modern Research**
 - Foundation models for Earth observation
@@ -86,12 +89,16 @@ We will leverage other Agentic AI patterns as well, including RAG, MCP, and Agen
 - How to know if we are watering "enough" and only "enough"?
 - Water scarce and stress are global issues, worsening due to Climate Change
 
+---
+
 ## Satellite Observations
 
 - Satellite measurements can help us here by providing estimates of critical properties like
   - How much water is currently in the plants?
   - How much is this amount changing? (time series + evapotranspiration)
   - What does the situation look like for the entire area (field) of interest? 
+
+---
 
 ## Satellite Imagery
 
@@ -247,10 +254,72 @@ is 1,800 to 7,000 ft.
 
 ---
 
+### 2020-Current: Tooling Developments
 
-### 2024-Current: Agentic AI tooling
+- 2020: "RAG" first mentioned
+  - Retrieval-augmented generation
+  - Adds ability to ground LLM responses in specific and relevant knowledge
+  - Explosion of development since, active even today
+    - Chunking, storage mechanisms, document parsing, data modalities, search, vector DBs, etc
 
 - 2024: Anthropic introduces model context protocol (MCP)
+  - LLM-friendly "API", allows tool-calling and access to external resources
+  - Downside -- Authentication not baked in from the start (added later)
+  - Downside -- Verbose and token-heavy; context window saturation, LLM response degradation
+  - Companies frenetically add 
+
+---
+
+### 2020-Current: Tooling Developments
+
+- Oct 2025: Cloudflare (and others) move away from MCP 
+  - "code mode"
+  - models are excellent at generating executable code on the fly, just use that
+  - Anthropic picked this up and ran with it as well, culminating in...
+
+- Nov 2025: Agent Skills
+  - specification for how to define workflows a model can follow
+  - replaces MCP for many use cases; now, an LLM executes workflow defined in a Skill, generates code as needed
+  - a Skill is a directory, with:
+    - SKILL.md -- defines workflow, YAML frontmatter
+    - references/ -- sort of local RAG, houses relevant data artifacts
+    - scripts/ -- actual code that can be called in the context of a Skill
+  - "progressive disclosure
+
+---
+
+### Agentic IDEs
+
+What happens when you take the MCPs, RAGs, Skills, wrap them into a command-line tool that can call
+high-quality LLMs, which, using the ReAct patterns, can directly interact with the machines they're
+running on to:
+- Read code and structures
+- Execute code and bash commands
+- Find relevant information locally and externally
+- Write and run code + tests
+?
+
+You get Agentic IDEs.
+
+- Feb 2025 -- Anthropic's Claude Code
+- May 2025 -- OpenAI's Codex
+- Jun 2025 -- Google's Gemini CLI
+- Aug 2025 -- Amazon's Kiro
+- Oct 2025 -- open-source Opencode (v1.0.0 release)
+
+---
+
+## Back to Almonds
+
+How can we use these agentic patterns to help us make irrigation decisions about almonds?
+
+Approach:
+- Get data from satellite data providers
+- Have agent call tools to calculate relevant quantities/variables from satellite data
+- RAG documents to give specific details as needed on irrigation, crop properties, etc
+- MCP to hit external weather API to inform tool call calculations as needed
+- Develop custom "agentic loop" to implement ReAct pattern with above tools
+
 ---
 
 ## Sentinel-2: Geospatial Observation Platform
@@ -283,7 +352,9 @@ B11   | SWIR-1       | 1610   | 20m  | Soil moisture, plant water
 B12   | SWIR-2       | 2190   | 20m  | Dry biomass, geology
 ```
 
-_Healthy plants absorb red and reflect NIR -- the key signature we exploit._
+- Healthy plants:
+  - Reflect Green and absorb Red
+  - Reflect NIR
 
 ---
 
@@ -291,7 +362,7 @@ _Healthy plants absorb red and reflect NIR -- the key signature we exploit._
 
 * NIR = Near Infrared
 * SWIR = Short-wavelength infrared
-* Chlorophyll => absorbs red & blue light, but reflects NIR more (healthy, dense canpoy)
+* Chlorophyll => absorbs red & blue light, but reflects green & NIR more (healthy, dense canopy)
 * leaf water => absorbs SWIR, so higher SWIR => drier leaves
 * NIR high, Red low => healthy, photosynthetically active vegetation
 * SWIR low => leaves are water-rich and turgid, since water absorbs SWIR
@@ -343,55 +414,11 @@ What is actually happening here?
 * When it is sunny, stomata open wider, leading to more water escaping per unit time
 * High wind can steepen the gradient
 
----
-
-## Spectral Indices: NDVI
-
-**Normalized Difference Vegetation Index**
-
-```
-NDVI = (NIR - Red) / (NIR + Red)
-```
-
-Range: **[-1, +1]**
-
-| Value | Interpretation |
-|-------|---------------|
-| < 0   | Water, bare rock |
-| 0–0.2 | Bare soil, sparse vegetation |
-| 0.2–0.4 | Low/stressed vegetation |
-| 0.4–0.7 | Moderate healthy vegetation |
-| > 0.7 | Dense healthy canopy |
-
-**Known limitation**: saturates above ~0.8 in dense canopy
+--> We need to know this VPD, and compute a variable that accounts for the temp/humidity gradients (CWSI)
 
 ---
 
-## NDWI: Water in the Canopy
-
-**Normalized Difference Water Index**
-
-```
-NDWI = (Green - SWIR) / (Green + SWIR)
-```
-
-- Positive → canopy has moisture (well-watered)
-- Negative → water stress or dry soil
-
-**Why we need it**: A field can have _normal_ NDVI but _low_ NDWI
-→ crop is structurally intact but already experiencing water stress
-→ NDWI catches stress earlier than NDVI
-
-**Why earlier?** NDVI tracks canopy greenness and structure (chlorophyll + leaf area).
-NDWI is more directly sensitive to liquid water in the leaf's spongy mesophyll -- the
-loosely-packed cell layer where water is lost first under stress, before visible
-wilting or chlorophyll breakdown begins.
-
----
-
-## EVI: When NDVI Saturates
-
-**Enhanced Vegetation Index**
+## EVI: Enhanced Vegetation Index
 
 ```
 EVI = 2.5 × (NIR - Red) / (NIR + C1·Red - C2·Blue + 1)
@@ -403,89 +430,53 @@ where C1 and C2 are tuneable parameters
 - More sensitive to canopy structure
 - Reduces atmospheric and soil background noise
 
-**Rule of thumb**:
-- Start with NDVI (fast, interpretable)
-- Confirm with EVI when NDVI is high or ambiguous
-- Use NDWI when investigating water/moisture stress
+---
+
+## CWSI: Crop Water Stress Index
+
+```
+CWSI = [(T_c - T_a) - (T_cl - T_a)] / [(T_cu - T_a) - (T_cl - T_a)]
+```
+
+- `T_c` -- measured canopy temp
+- `T_a` -- air temp
+- `T_cl` -- canopy temp of non-stressed crop (min. `T_c`)
+- `T_cu` -- canopt temp of a stressed crop (max `T_c`)
 
 ---
 
 ## What Crop Stress Looks Like Spectrally
 
-| Stress type | NDVI | NDWI | EVI | Other signals |
-|-------------|------|------|-----|---------------|
-| Water stress | ↓ moderate | ↓ early | ↓ | Thermal: warmer canopy |
-| Nutrient deficiency | ↓ patchy | normal | ↓ patchy | Red-edge shift |
-| Pest/disease | ↓ localized | varies | ↓ | Rapid change in timeseries |
-| Healthy | high, stable | positive | moderate-high | -- |
+|         Stress type |         NDVI |      CWSI |           EVI |              Other signals |
+|---------------------|--------------|-----------|---------------|----------------------------|
+|        Water stress |            ↓ | up early  |             ↓ |     Thermal: warmer canopy |
+| Nutrient deficiency |            ↓ |   varies  |             ↓ |             Red-edge shift |
+|        Pest/disease |            ↓ |   varies  |             ↓ | Rapid change in timeseries |
+|             Healthy |         high |      low  | moderate-high |                         -- |
 
-**The core problem**: stress signatures _overlap spectrally_
-
-A field with low NDWI could be:
-1. Under-irrigated
-2. Over-shaded by clouds at image time
-3. Late-season senescence (normal)
-4. Pest damage
+Challenges:
+- Crops exhibit different patterns and have different properties, like Kc
+- "noise" like haze, clouds, etc can impact satellite measurements
+- late season senescence
+- pest damage
 
 ---
 
-## The Ambiguity Problem
+## How can an agent help make irrigation decision?
 
-> A fixed pipeline that computes NDVI → thresholds → alert
-> cannot distinguish these cases.
-
-* Context-sensitive reasoning under uncertainty
-
----
-
-## The Ambiguity Problem
-
-```
-"NDWI is negative AND NDVI declined 0.15 since last week
- AND the baseline from June shows this field was healthy
- AND the crop calendar says this is mid-season peak...
- → water stress, high confidence. Recommend irrigation audit."
-```
-
-vs.
-
-```
-"NDWI is negative but NDVI is normal AND timeseries is stable
- AND cloud cover was 40% at acquisition time
- → inconclusive. Recommend re-image in 5 days."
-```
+- Fixed pipeline would be brittle
+- Fractal-like complexity of thresholds for crops, regions, seasons, etc to bake in
+- "wine terroir"
+- An agent can:
+  - call different analysis functions on relevant data (or pull more)
+  - check current and recent weather
+  - verify info on "fractal-like" complexities from a document corpus
+  - analyze historical and time series data
+  - escalate to human
+  - ==> handle uncertainty, ambiguity, and "reason intelligently"
 
 ---
 
-## The Fixed Pipeline Approach
-
-```python
-# Traditional crop monitoring script
-ndvi = compute_ndvi(scene)
-if ndvi.mean < 0.35:
-    alert("Low vegetation health", region=scene.bounds)
-```
-
-Shortcomings?
-
----
-
-## The Fixed Pipeline Approach
-
-```python
-# Traditional crop monitoring script
-ndvi = compute_ndvi(scene)
-if ndvi.mean < 0.35:
-    alert("Low vegetation health", region=scene.bounds)
-```
-
-Shortcomings:
-- Threshold is arbitrary -- wrong for every crop/season combination
-- No temporal context -- can't distinguish new stress from chronic
-- No uncertainty -- outputs an alert or nothing, never "probably"
-- Can't integrate multiple signals -- NDVI alone doesn't distinguish water stress from senescence
-
----
 
 ## The Deep Learning Approach
 
@@ -511,224 +502,33 @@ Shortcomings:
 - Doesn't reason about uncertainty -- it produces a label
 - **Can't call external tools (timeseries DB, crop calendar, weather)**
 
-_Deep learning is excellent for perception; it's less suited for the reasoning layer._
+Deep learning is excellent for perception; it's less suited for the reasoning layer
 
 ---
 
 ## Agent vs. Deep Learning: Tradeoffs
 
-|  | Deep Learning | Agentic LLM |
-|--|---------------|-------------|
-| Accuracy (benchmark) | ✅ High | 🔶 Depends on tools |
-| Explainability | ❌ Black box | ✅ Generates reasoning trace |
-| Data requirements | ❌ Large labeled sets | ✅ Tools + prompt |
-| Adaptability | ❌ Retrain needed | ✅ Prompt + tool update |
-| Cost per query | ✅ Cheap inference | 🔶 API cost |
-| Inference Latency | ✅ Milliseconds | 🔶 Seconds |
-| Tool integration | ❌ Bespoke wrappers | ✅ Native tool calling |
-| Uncertainty expression | ❌ Rare | ✅ Built into prompt |
+- Accuracy (DL)
+- Explainability (Agent)
+- Data Requirements (Agent)
+- Adaptability (Agent)
+- Cost per Query (DL)
+- Inference Latency (DL)
+- Tool Integration (Agent)
+- Uncertainty Expression (Agent)
 
 Hybrid architectures often win: DL for perception, agent for reasoning and orchestration.
 
 ---
 
-## What Makes a System "Agentic"?
+## Live Demo
 
-1. Tool calling
-2. Multi-turn reasoning
-3. Conditional execution
-4. Grounded output
-
-```
-User: "Assess crop health."
-
-Loop:
-  [Model reasons] "I'll start with NDVI" → [calls compute_ndvi]
-  [Tool returns] NDVI result with low fraction = 0.23
-  [Model reasons] "Low NDVI. Let me check moisture." → [calls compute_ndwi]
-  [Tool returns] NDWI = -0.18 (water stressed)
-  [Model reasons] "Declining trend?" → [calls get_pixel_timeseries]
-  [Tool returns] NDVI declined 0.15 in past 10 days
-  [Model reasons] → "Water stress confirmed. Writing report." → END
-```
-
-_The agent decided which tools to call, in what order, based on what it observed._
-
----
-
-## Tool Calling: The API Mechanic
-
-The model API accepts a `tools` parameter: a list of JSON schemas.
-
-```json
-{
-  "name": "compute_ndvi",
-  "description": "Compute NDVI for a spatial region. Returns mean, std, ...",
-  "input_schema": {
-    "type": "object",
-    "properties": {
-      "region": {
-        "type": "object",
-        "properties": {
-          "row_min": {"type": "integer"},
-          "row_max": {"type": "integer"},
-          "col_min": {"type": "integer"},
-          "col_max": {"type": "integer"}
-        },
-        "required": ["row_min", "row_max", "col_min", "col_max"]
-      }
-    },
-    "required": ["region"]
-  }
-}
-```
-
-Q: what sticks out to you about this approach? benefits? weaknesses?
-
----
-
-## Tool = JSON Schema + Python Function
-
-```python
-# In tools.py -- just a function
-def compute_ndvi(region: BoundingBox) -> NDVIResult:
-    """Compute NDVI = (NIR - Red) / (NIR + Red)."""
-    nir  = scene.get_band("B08", region)
-    red  = scene.get_band("B04", region)
-    ndvi = (nir - red) / (nir + red + 1e-8)
-    mean = float(ndvi.mean())
-    low_frac = float((ndvi < 0.3).mean())
-    return NDVIResult(
-        mean=mean, low_fraction=low_frac,
-        summary=f"Mean NDVI={mean:.3f}. {low_frac:.1%} pixels stressed."
-    )
-```
-
-The dispatcher is just a dict:
-
-```python
-TOOL_MAP = {
-    "compute_ndvi": compute_ndvi,
-    "compute_ndwi": compute_ndwi,
-    "compute_evi":  compute_evi,
-    # ...
-}
-
-def dispatch_tool(name, input_dict):
-    return TOOL_MAP[name](**input_dict)
-```
-
-_tools are just functions_
-
----
-
-## ReAct: Reason + Act
-
-The widely-adopted prompting pattern for tool-calling agents.
-
-> Yao et al. (2023). _"ReAct: Synergizing Reasoning and Acting in Language Models."_ ICLR 2023.
-
-The core idea: interleave **thought** and **action** in the context window.
-
-```
-Thought: NDVI mean is 0.31, with 23% of pixels below 0.3.
-         This is concerning -- let me check water content.
-Action:  compute_ndwi(region)
-Obs:     mean NDWI = -0.18. Status: water-stressed.
-
-Thought: NDWI confirms moisture deficit. Is this recent or chronic?
-Action:  get_pixel_timeseries(lat=50, lon=75, index="ndvi")
-Obs:     NDVI declined 0.15 in past 10 days. Trend: declining.
-
-Thought: Recent onset + water stress → irrigation problem.
-         High confidence. Writing final report.
-Action:  [end_turn]
-```
-
----
-
-## The System Prompt
-
-Every behavior we want is specified here:
-
-```
-You are an autonomous crop health analyst working with satellite imagery.
-
-Your workflow:
-1. Start with a broad assessment (e.g., compute NDVI for the region)
-2. If you detect anomalies, investigate further
-3. Explain your reasoning before each tool call
-4. Only call tools when warranted -- you do not need all of them
-5. If tools return errors, adapt your strategy
-6. When done, write a diagnostic report with:
-   - Summary of findings
-   - Specific locations of concern
-   - Likely cause of stress with confidence level
-   - Recommended follow-up actions
-7. Express uncertainty when indices give conflicting signals
-```
-
----
-
-## The Agent Loop
-
-_The entire agentic pattern in ~30 lines._
-
-```python
-messages = [{"role": "user", "content": user_request}]
-
-for _ in range(MAX_ITERATIONS):
-    response = client.messages.create(
-        model=MODEL,
-        system=SYSTEM_PROMPT,
-        tools=TOOL_SCHEMAS,
-        messages=messages,
-        temperature=0,
-    )
-
-    messages.append({"role": "assistant", "content": response.content})
-
-    if response.stop_reason == "end_turn":
-        return extract_text(response)   # Done
-
-    if response.stop_reason == "tool_use":
-        results = []
-        for block in response.content:
-            if block.type == "tool_use":
-                result = dispatch_tool(block.name, block.input)
-                results.append({
-                    "type": "tool_result",
-                    "tool_use_id": block.id,
-                    "content": result.summary,
-                })
-        messages.append({"role": "user", "content": results})
-```
-
----
-
-## What the Loop Looks Like Running
-
-```
-[TOOL CALL] compute_ndvi
-[INPUT]  {"region": {"row_min": 0, "row_max": 256, ...}}
-[RESULT] Mean NDVI=0.312, std=0.091. Pixels below 0.3: 23.4%. ⚠️ Significant stressed area.
-
-[TOOL CALL] flag_anomalous_regions
-[INPUT]  {"index": "ndvi", "threshold": 0.3, "direction": "below"}
-[RESULT] Found 2 anomalous regions. Region 1: rows 64–128, cols 128–192, mean NDVI=0.241.
-
-[TOOL CALL] compute_ndwi
-[INPUT]  {"region": {"row_min": 64, "row_max": 128, "col_min": 128, "col_max": 192}}
-[RESULT] NDWI mean=-0.21. Status: water-stressed. Negative pixels: 78.3%.
-
-[TOOL CALL] get_pixel_timeseries
-[INPUT]  {"lat": 96, "lon": 160, "index": "ndvi"}
-[RESULT] NDVI declining (Δ≈-0.17 -- possible recent stress onset).
-
-============================================================
-FINAL REPORT
-Anomalous region in rows 64–128, cols 128–192 shows...
-```
+- Tool Calling
+  - JSON Schema
+  - Python Functions
+- System Prompt
+- Agentic Loop
+- Visualizations
 
 ---
 
@@ -746,7 +546,7 @@ User request
        ▼ dispatch_tool(name, input)
 ┌────────────────────────────────────────────┐
 │               tools.py                     │
-│  compute_ndvi   compute_ndwi   compute_evi │
+│  compute_ndvi   compute_cwsi   compute_evi │
 │  flag_anomalous_regions                    │
 │  get_pixel_timeseries                      │
 │  compare_to_baseline                       │
@@ -756,42 +556,6 @@ User request
          scene.py (synthetic Sentinel-2 data)
          NumPy arrays + timeseries + baseline
 ```
-
----
-
-## Our Toolset
-
-| Tool | What it does | Why the agent needs it |
-|------|-------------|------------------------|
-| `compute_ndvi` | NDVI map, mean, stressed-pixel fraction | First-pass overview |
-| `compute_ndwi` | Water/moisture stress index | Distinguish water vs. nutrient stress |
-| `compute_evi` | Less-saturated vegetation index | Cross-check NDVI in dense canopy |
-| `flag_anomalous_regions` | Find grid cells below/above threshold | Localize stress spatially |
-| `get_pixel_timeseries` | NDVI history at a point | Distinguish new stress from chronic |
-| `compare_to_baseline` | Diff current vs. earlier date | Quantify change, confirm onset |
-
-Design rules:
-- Tools are **flat** -- no tool calls another tool
-- Tools **never raise** -- return `success=False` with an error message
-- Every tool returns a `summary` string → that's what goes into the context window
-
----
-
-## Now: Demo
-
-**Scene A** -- scripted walkthrough (temperature=0)
-_We'll read the trace together and ask: why did it call that? what did it learn?_
-
-**Scene B** -- live run
-_Same agent, different data. Watch it take a different path._
-
-```bash
-make demo           # Scene A, mock mode (offline)
-uv run python -m agent.loop --scene scene_a
-uv run python -m agent.loop --scene scene_b
-```
-
-→ _Notebooks: `02_agent_loop.ipynb`_
 
 ---
 
@@ -913,28 +677,6 @@ Current practice:
 
 ---
 
-## Take-Home: Notebook 03
-
-**Failure modes** -- where agents break, and what to do about it:
-
-1. Bad tool description → agent misuses or ignores tool
-2. Unhandled tool exceptions → loop crashes
-3. Contradictory indices → agent fails to notice
-4. No max iteration guard → potential infinite loop
-5. Missing "express uncertainty" instruction → overconfident reports
-6. Tool result hallucination → agent ignores observed data
-
-Each section: failure in a runnable cell → explanation → fix → reflection question.
-
-```bash
-# In the repo
-jupyter notebook notebooks/03_failure_modes.ipynb
-```
-
-See `EXERCISES.md` for 5 take-home problems (add a new tool, modify the prompt, build an evaluator...).
-
----
-
 ## References
 
 - Yao et al. (2023). **ReAct: Synergizing Reasoning and Acting in Language Models.** ICLR 2023.
@@ -952,7 +694,7 @@ See `EXERCISES.md` for 5 take-home problems (add a new tool, modify the prompt, 
 
 ## Questions?
 
-**Repo**: clone and run immediately -- no data download required
+**Repo**: https://github.com/ryangooch/agentic-satellite-data
 
 ```bash
 git clone <repo>
@@ -965,7 +707,8 @@ uv run python -m agent.loop --scene scene_b
 **Notebooks**:
 - `00_data_exploration.ipynb` -- band visualization
 - `01_tools.ipynb` -- tools as plain functions
-- `02_agent_loop.ipynb` -- **start here**
-- `03_failure_modes.ipynb` -- take-home
+- `02_agent_loop.ipynb` -- the agentic loop, tool-calling
+- `03_failure_modes.ipynb` -- how can things go wrong and what we can do about them
+- `04_visualizations.ipynb` -- real data plots
 
-Estimated cost for all exercises: **$0.10–0.50** with `claude-sonnet-4-6`
+See `EXERCISES.md` for 5 take-home problems (add a new tool, modify the prompt, build an evaluator...).
