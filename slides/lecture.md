@@ -1,7 +1,8 @@
 # Agentic AI for Signal Processing
 ## Satellite Crop Health Assessment via Autonomous Multi-Band Image Analysis
 
-ECE Senior / First-Year Graduate Lecture · 75 min
+A lecture on broader trends in systems powered by agentic AI through the lens of a crop irrigation
+and monitoring challenge.
 
 ---
 
@@ -11,7 +12,9 @@ We will develop a ReAct-style LLM-based tool-calling agent that will be able to 
 about satellite imagery of crops and other vegetation
 
 It will do this by using derived properties based on satellite measurements across different multi-
-channel bands, made available in the form of functions (tools).
+channel bands, made available in the form of functions (tools)
+
+We will leverage other Agentic AI patterns as well, including RAG, MCP, and Agent Skills
 
 ---
 
@@ -27,42 +30,227 @@ channel bands, made available in the form of functions (tools).
 
 ## Agenda
 
-**Part 1 -- The Signal Processing Domain** _(~10 min)_
+**Part 0 -- What is the Problem and why do we care?**
+- Overview of almond plantations and water stress
+- Introduction to Satellites as a means of measurement of core properties
+
+**Part 1 -- Current State of Agentic AI**
+- Common patterns and terminology
+- A bit of history
+- When and how to use Agentic AI
+- The ReAct Pattern
+
+**Part 2 -- Satellites, Almonds, and Signal Processing**
+- Almond irrigation -- challenges and impact
 - Sentinel-2 satellite imagery
-- Spectral indices: NDVI, NDWI, EVI
-- The ambiguity problem
+- Spectral indices: NDVI, EVI
+- Temperature indices: CWSI
 
-**Part 2 -- Why an Agent?** _(~10 min)_
-- Fixed pipelines, deep learning, and where they break
-- Agents vs. bespoke models: real tradeoffs
-
-**Part 3 -- How Agents Work** _(~12 min)_
+**Part 3 -- The How and Why of AI Agents**
+- When to reach for an Agent vs fixed, deterministic patterns
 - Tool calling at the API level
 - The ReAct framework
-- The loop (~80 lines of real code)
 
-**Part 4 -- Modern Research** _(~8 min)_
+**live demo**
+
+**Part 4 -- Modern Research**
 - Foundation models for Earth observation
 - Multi-agent systems, MCP, HITL
 - Open problems and research frontiers
 
-**Then: live demo** _(~30 min)_
+---
+
+## About Me
+
+- PhD in E.E. at CSU
+- Deep Learning and Weather Radar
+- Postdoc: NREL
+  - Hybrid deep learning / computer vision pipeline for automatic solar heliostat calibration
+- Startups: PlanetiQ
+  - Satellite obs. of atmosphere with RO; Signal processing, software engineering, optimization, ML
+- Startups: Tellus
+  - Life and biorhythm monitoring of older adults with FMCW radar, deep learning, and signal processing
+- Consulting: phData
+  - Production deployment patterns and infrastructure for millions of ML models for Fortune 500
 
 ---
 
-## Why Satellite Imagery?
+## Part 0: What is the Problem and Why Do We Care?
 
-Remote sensing for agriculture has been an active research area since the 1970s (Landsat).
-Sentinel-2 made high-resolution multi-spectral data free and globally available.
+---
 
-- Millions of pixels per tile, updated every 5 days globally
-- 13 spectral bands
-    - each band measures a different wavelength range
-    - each correlated with different physical properties of the surface
-- Temporal stack: changes between acquisitions often more diagnostic than any single image
+## Our Problem
 
-The volume and dimensionality of this data imposes challenges of scale and velocity
+- Almond plantations need a ton of water, and are typically grown in water-starved areas (CA)
+- Water resource management is critically important
+- How to know if we are watering "enough" and only "enough"?
+- Water scarce and stress are global issues, worsening due to Climate Change
 
+## Satellite Observations
+
+- Satellite measurements can help us here by providing estimates of critical properties like
+  - How much water is currently in the plants?
+  - How much is this amount changing? (time series + evapotranspiration)
+  - What does the situation look like for the entire area (field) of interest? 
+
+## Satellite Imagery
+
+Remote Sensing gives:
+- Revisits and time series measurements
+- Efficient measurements (relative to point instruments)
+  - Temperature, Moisture in plants, etc
+- Publicly funded and freely available options (Sentinel-2)
+  - Commercial options and opportunities
+
+---
+
+## Part 1: Agentic AI
+
+---
+
+## A bit of history
+
+
+---
+
+### 1985: Programming as Theory Building
+
+- Danish computer scientist and Turing Award winner, Peter Naur
+- Building off work in philosophy by Ryle (1949)
+- "Very briefly, a person who has or possesses a theory in this sense* knows how to do certain things and in addition can support the actual doing with explanations, justifications, and answers to queries, about the activity of concern"
+
+[*] programmers' knowledge as a theory; the knowledge built up through the course of time and effort to solve problems in a specific role/use case
+
+---
+
+
+### 2017: Transformer Paper
+
+- We can now efficiently train massive LLMs (large language models) to produce credible responses
+- Knowledge can be built from text alone
+- A "Theory of Mind" in a language model
+
+---
+
+
+### 2018: Bidirectional encoder representations from transformers (BERT)
+
+- From Google
+- Building on transformer work, self-supervised system to represent text
+- Masked token prediction and next sentence prediction
+- Learns contextual, latent representation of tokens* in their context
+- 110M parameters
+
+[*] integers mapped from subwords; represents vocabulary of the model
+
+---
+
+
+### 2019: Generative pretrained Transformer 2 (GPT-2)
+
+- OpenAI
+- general-purpose learner
+- tenfold increase from GPT-1; 1.5B parameters
+- more data, bigger model, more better
+
+
+---
+
+### 2020: Generative pretrained Transformer 3 (GPT-3)
+
+- OpenAI
+- like GPT-2, decoder-only transformer deep neural network model
+- hundredfold increase from GPT-2; 175B parameters
+- more data, bigger model, more better
+
+
+---
+
+### 2021: Github Copilot
+
+- LLM-generated, "smart" autocomplete
+- Leveraged GPT-3
+- Browser extension in Jetbrains, then VS Code, Neovim, etc
+- First coding model that was democratized widely and used broadly
+- Not quite "agentic" but a big turning point moment
+
+
+---
+
+### 2022-23: Chat-based models
+
+- 2022: ChatGPT (OpenAI)
+- 2023: Claude (Anthropic)
+- 2023: Grok
+
+Each company releasing and upgrading their functionality, but as of 2023 the models were "stuck" in
+the chat interfaces...
+
+
+---
+
+### 2022: ReAct -- Reason + Act
+
+- Yao et al
+- Synergizing Reasoning and Acting in Language Models
+- Defines a patter where LLMs generate "reasoning traces" and "task-specific actions" in an interleaved manner
+- A model can form an action plan, issue tool calls, and monitor responses, then update its plan and understanding iteratively
+- Kind of like the powerful "Chain of Thought" reasoning (CoT, also 2022) but with access to "tools"
+
+**Tool**: a function that can be called by an LLM
+
+---
+
+### ReAct Example, modified from the paper
+
+**Question** What is the elevation range for the area that the eastern sector of the
+Colorado orogeny extends into?
+
+**Thought 1** I need to search Colorado orogeny, find the area that the eastern sector
+of the Colorado orogeny extends into, then find the elevation range of the
+area.
+
+**Action 1** _Search[Colorado orogeny]_
+
+**Observation 1** The Colorado orogeny was an episode of mountain building (an orogeny) in
+Colorado and surrounding areas.
+
+**Thought 2** It does not mention the eastern sector. So I need to look up eastern
+sector.
+
+**Action 2** _Lookup[eastern sector]_
+
+**Observation 2** (Result 1 / 1) The eastern sector extends into the High Plains and is called
+the Central Plains orogeny.
+
+**Thought 3** The eastern sector of Colorado orogeny extends into the High Plains. So I
+need to search High Plains and find its elevation range.
+
+**Action 3** _Search[High Plains]_
+
+**Observation 3** High Plains refers to one of two distinct land regions
+
+**Thought 4** I need to instead search High Plains (United States).
+
+**Action 4** _Search[High Plains (United States)]_
+
+**Observation 4** The High Plains are a subregion of the Great Plains. From east to west, the
+High Plains rise in elevation from around 1,800 to 7,000 ft (550 to 2,130
+m).[3]
+
+**Thought 5** High Plains rise in elevation from around 1,800 to 7,000 ft, so the answer
+is 1,800 to 7,000 ft.
+
+**Action 5** _Finish[1,800 to 7,000 ft]_
+
+...
+
+---
+
+
+### 2024-Current: Agentic AI tooling
+
+- 2024: Anthropic introduces model context protocol (MCP)
 ---
 
 ## Sentinel-2: Geospatial Observation Platform
