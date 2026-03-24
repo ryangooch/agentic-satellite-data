@@ -176,13 +176,41 @@ _CWSI_BASELINES = {
 }
 
 
+def _thermal_sharpen(lst_coarse: np.ndarray, ndvi_fine: np.ndarray, block: int = 10) -> np.ndarray:
+    """Sharpen coarse-resolution LST using fine-resolution NDVI (TsHARP method).
+
+    Fits a linear NDVI–LST relationship at coarse resolution, then applies
+    the residual correction at fine resolution.  Based on Agam et al. (2007).
+    """
+    from scipy.ndimage import uniform_filter
+    h, w = ndvi_fine.shape
+    # Aggregate NDVI to coarse resolution to match LST
+    ndvi_coarse = uniform_filter(ndvi_fine, size=block, mode='nearest')
+    # Fit linear regression: LST = a * NDVI + b (at coarse scale)
+    valid = ~np.isnan(lst_coarse) & ~np.isnan(ndvi_coarse)
+    if valid.sum() < 10:
+        return lst_coarse  # not enough data, return as-is
+    a, b = np.polyfit(ndvi_coarse[valid], lst_coarse[valid], 1)
+    # Predict LST at fine resolution using NDVI
+    lst_predicted_fine = a * ndvi_fine + b
+    lst_predicted_coarse = a * ndvi_coarse + b
+    # Residual at coarse resolution
+    residual = np.where(valid, lst_coarse - lst_predicted_coarse, 0.0)
+    # Add residual back to fine prediction
+    lst_sharp = lst_predicted_fine + residual
+    return lst_sharp
+
+
 def compute_cwsi(
     region: BoundingBox, air_temp_f: float, vpd_kpa: float, crop_type: str = "almond"
 ) -> CWSIResult:
-    """Compute CWSI (Crop Water Stress Index) using empirical VPD method.
+    """Compute CWSI (Crop Water Stress Index) using thermal data when available.
 
-    Combines weather-derived VPD with NDVI as a spatial proxy for
-    transpiration to produce a spatially-distributed CWSI map.
+    When Landsat LST is available, uses the empirical CWSI method (Jackson et al. 1981)
+    with NDVI-based thermal sharpening (TsHARP, Agam et al. 2007) to downscale
+    100m thermal data to 10m resolution.
+
+    Falls back to VPD+NDVI proxy when no thermal band is present.
 
     CWSI ranges 0-1: 0 = no stress, 1 = maximum stress.
     Values > 0.5 indicate significant water stress.
@@ -196,18 +224,38 @@ def compute_cwsi(
         )
 
     bl = _CWSI_BASELINES[crop]
-    base_cwsi = max(
-        0.0, min(1.0, (vpd_kpa - bl["vpd_lower"]) / (bl["vpd_upper"] - bl["vpd_lower"]))
-    )
-
-    # Use NDVI as spatial modulator: lower NDVI → higher stress
     ndvi = _compute_index_array("ndvi", region)
-    ndvi_norm = np.clip((ndvi - 0.1) / (0.8 - 0.1), 0, 1)  # normalize to 0-1
 
-    # Spatial CWSI: base stress adjusted by vegetation health
-    # Healthy vegetation (high NDVI) can transpire → lower CWSI
-    # Stressed vegetation (low NDVI) cannot transpire → higher CWSI
-    cwsi = np.clip(base_cwsi + (1 - ndvi_norm) * 0.3 - ndvi_norm * 0.15, 0, 1)
+    # Try thermal-based CWSI first
+    try:
+        lst_raw = _scene.get_band("LST", region)
+        has_thermal = not np.all(np.isnan(lst_raw))
+    except KeyError:
+        has_thermal = False
+
+    if has_thermal:
+        # Thermal sharpening: downscale 100m LST using 10m NDVI
+        lst = _thermal_sharpen(lst_raw, ndvi, block=10)
+        # Air temperature in Kelvin
+        ta_k = (air_temp_f - 32) * 5 / 9 + 273.15
+        # Canopy-air temperature differential
+        dt = lst - ta_k
+        # Crop-specific non-water-stressed baseline (NWSB):
+        #   dT_lower = a + b*VPD  (well-watered: canopy cooler than air via transpiration)
+        #   dT_upper = no transpiration (canopy heats toward soil equilibrium)
+        # Empirical parameters from Idso et al. (1981), Jackson et al. (1981)
+        dt_lower = 1.5 - 2.0 * vpd_kpa  # well-watered canopy (almond NWSB)
+        dt_upper = 15.0  # fully stressed in semi-arid conditions
+        cwsi = np.clip((dt - dt_lower) / (dt_upper - dt_lower), 0, 1)
+        method = "thermal (Landsat LST + TsHARP)"
+    else:
+        # Fallback: VPD + NDVI proxy
+        base_cwsi = max(
+            0.0, min(1.0, (vpd_kpa - bl["vpd_lower"]) / (bl["vpd_upper"] - bl["vpd_lower"]))
+        )
+        ndvi_norm = np.clip((ndvi - 0.1) / (0.8 - 0.1), 0, 1)
+        cwsi = np.clip(base_cwsi + (1 - ndvi_norm) * 0.3 - ndvi_norm * 0.15, 0, 1)
+        method = "VPD+NDVI proxy (no thermal data)"
 
     mean_val = float(cwsi.mean())
     std_val = float(cwsi.std())
@@ -232,7 +280,7 @@ def compute_cwsi(
         f"mean={mean_val:.3f}, std={std_val:.3f}. "
         f"Pixels above 0.5 (stressed): {high_frac:.1%}. "
         f"VPD={vpd_kpa:.2f} kPa, Tair={air_temp_f:.1f}F. "
-        f"stress_msg: {stress_msg}."
+        f"Method: {method}. {stress_msg}."
     )
     return CWSIResult(
         success=True,

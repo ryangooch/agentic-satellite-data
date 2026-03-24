@@ -21,9 +21,8 @@ import numpy as np
 import planetary_computer
 import pystac_client
 import rasterio
-from rasterio.transform import array_bounds
-from rasterio.warp import transform_bounds
-from rasterio.windows import from_bounds
+from rasterio.transform import from_bounds as affine_from_bounds
+from rasterio.warp import reproject, transform_bounds, Resampling
 
 SCENES_DIR = Path("data/scenes")
 SCENES_DIR.mkdir(parents=True, exist_ok=True)
@@ -37,6 +36,12 @@ DEFAULT_LON = -120.108
 DEFAULT_SIZE_M = 2000  # 2km x 2km AOI
 
 STAC_URL = "https://planetarycomputer.microsoft.com/api/stac/v1"
+
+# Landsat Collection 2 Level 2 surface temperature band
+LANDSAT_COLLECTION = "landsat-c2-l2"
+LANDSAT_THERMAL_ASSET = "lwir11"  # TIRS Band 10 (10.9 µm)
+LANDSAT_ST_SCALE = 0.00341802  # DN to Kelvin scale factor
+LANDSAT_ST_OFFSET = 149.0  # DN to Kelvin offset
 
 
 def meters_to_degrees(meters: float, lat: float) -> tuple[float, float]:
@@ -81,27 +86,36 @@ def search_scenes(bbox: list[float], date_range: str, max_items: int = 10):
     return deduped
 
 
-def read_band_from_item(item, band_key: str, bbox: list[float], target_shape: tuple[int, int]) -> np.ndarray:
-    """Read a single band from a STAC item, cropped to bbox, resampled to target_shape.
+def _target_transform(bbox: list[float], shape: tuple[int, int]):
+    """Return a north-up Affine transform for a WGS84 bbox and pixel grid.
 
-    bbox is in WGS84 (EPSG:4326) — we reproject to the raster's CRS before windowing.
+    Every scene and baseline band is reprojected onto this identical grid,
+    guaranteeing pixel-level co-registration across different Sentinel-2 passes.
+    """
+    return affine_from_bounds(*bbox, shape[1], shape[0])
+
+
+def read_band_from_item(item, band_key: str, bbox: list[float], target_shape: tuple[int, int]) -> np.ndarray:
+    """Read a single band from a STAC item, reprojected to a north-up WGS84 grid.
+
+    All bands are warped onto an identical target grid defined by (bbox, target_shape)
+    so that cross-scene comparisons (e.g. baseline change detection) are pixel-aligned.
     """
     href = item.assets[band_key].href
+    dst_transform = _target_transform(bbox, target_shape)
+    dst_crs = "EPSG:4326"
 
     with rasterio.open(href) as src:
-        # Transform bbox from WGS84 to raster CRS
-        native_bbox = transform_bounds("EPSG:4326", src.crs, *bbox)
-        window = from_bounds(*native_bbox, transform=src.transform)
-        # Clip to raster extent
-        window = window.intersection(rasterio.windows.Window(0, 0, src.width, src.height))
-        data = src.read(
-            1,
-            window=window,
-            out_shape=target_shape,
-            resampling=rasterio.enums.Resampling.bilinear,
+        dst = np.zeros(target_shape, dtype=np.float32)
+        reproject(
+            source=rasterio.band(src, 1),
+            destination=dst,
+            dst_transform=dst_transform,
+            dst_crs=dst_crs,
+            resampling=Resampling.bilinear,
         )
-    # Convert to float32 reflectance (Sentinel-2 L2A stores as uint16 * 10000)
-    return (data.astype(np.float32) / 10_000.0)
+    # Convert to reflectance (Sentinel-2 L2A stores as uint16 * 10000)
+    return dst / 10_000.0
 
 
 def fetch_scene(item, bbox: list[float], target_size: int = 200) -> dict[str, np.ndarray]:
@@ -126,33 +140,59 @@ def fetch_cropscape_labels(bbox: list[float], year: int) -> dict:
     from collections import Counter
     from io import BytesIO
 
-    # Common CDL crop codes — subset covering Central Valley agriculture
+    # Common CDL crop codes — covers Central Valley agriculture + double crops
     CDL_NAMES = {
         0: "Background", 1: "Corn", 2: "Cotton", 3: "Rice", 4: "Sorghum",
         5: "Soybeans", 6: "Sunflower", 10: "Peanuts", 12: "Sweet Corn",
-        21: "Barley", 23: "Spring Wheat", 24: "Winter Wheat", 27: "Rye",
-        28: "Oats", 36: "Alfalfa", 37: "Other Hay/Non Alfalfa",
-        42: "Dry Beans", 49: "Onions", 53: "Peas", 54: "Tomatoes",
-        56: "Hops", 57: "Herbs", 58: "Clover/Wildflowers",
+        13: "Pop or Orn Corn", 14: "Mint",
+        21: "Barley", 22: "Durum Wheat", 23: "Spring Wheat",
+        24: "Winter Wheat", 25: "Other Small Grains", 26: "Dbl Crop WinWht/Soybeans",
+        27: "Rye", 28: "Oats", 29: "Millet",
+        30: "Speltz", 31: "Canola", 32: "Flaxseed", 33: "Safflower",
+        34: "Rape Seed", 35: "Mustard", 36: "Alfalfa",
+        37: "Other Hay/Non Alfalfa", 38: "Camelina",
+        39: "Buckwheat", 41: "Sugarbeets", 42: "Dry Beans",
+        43: "Potatoes", 44: "Other Crops", 45: "Sugarcane",
+        46: "Sweet Potatoes", 47: "Misc Vegs & Fruits",
+        48: "Watermelons", 49: "Onions", 50: "Cucumbers",
+        51: "Chick Peas", 52: "Lentils", 53: "Peas",
+        54: "Tomatoes", 55: "Caneberries", 56: "Hops",
+        57: "Herbs", 58: "Clover/Wildflowers", 59: "Sod/Grass Seed",
+        60: "Switchgrass", 61: "Fallow/Idle Cropland",
+        63: "Forest", 64: "Shrubland", 65: "Barren",
         66: "Cherries", 67: "Peaches", 68: "Apples", 69: "Grapes",
-        72: "Citrus", 75: "Almonds", 76: "Walnuts", 77: "Pears",
-        92: "Aquaculture", 111: "Open Water", 121: "Developed/Open Space",
-        122: "Developed/Low Intensity", 123: "Developed/Medium Intensity",
-        124: "Developed/High Intensity", 131: "Barren",
-        141: "Deciduous Forest", 142: "Evergreen Forest",
+        70: "Christmas Trees", 71: "Other Tree Crops", 72: "Citrus",
+        74: "Pecans", 75: "Almonds", 76: "Walnuts", 77: "Pears",
+        92: "Aquaculture", 111: "Open Water", 112: "Perennial Ice/Snow",
+        121: "Developed/Open Space", 122: "Developed/Low Intensity",
+        123: "Developed/Medium Intensity", 124: "Developed/High Intensity",
+        131: "Barren", 141: "Deciduous Forest", 142: "Evergreen Forest",
         143: "Mixed Forest", 152: "Shrubland",
         171: "Grassland/Pasture", 176: "Grassland/Pasture",
         190: "Woody Wetlands", 195: "Herbaceous Wetlands",
-        204: "Pistachios", 210: "Prunes", 211: "Olives",
-        212: "Oranges", 217: "Pomegranates", 218: "Nectarines",
-        220: "Plums", 227: "Lettuce",
+        204: "Pistachios", 205: "Triticale", 206: "Carrots",
+        207: "Asparagus", 208: "Garlic", 209: "Cantaloupes",
+        210: "Prunes", 211: "Olives", 212: "Oranges",
+        213: "Honeydew Melons", 214: "Broccoli", 216: "Peppers",
+        217: "Pomegranates", 218: "Nectarines", 219: "Greens",
+        220: "Plums", 221: "Strawberries", 222: "Squash",
+        223: "Apricots", 224: "Vetch", 225: "Dbl Crop WinWht/Corn",
+        226: "Dbl Crop Oats/Corn", 227: "Lettuce",
+        228: "Dbl Crop Triticale/Corn", 229: "Pumpkins",
+        230: "Dbl Crop Lettuce/Durum Wht", 231: "Dbl Crop Lettuce/Cantaloupe",
+        232: "Dbl Crop Lettuce/Cotton", 233: "Dbl Crop Lettuce/Barley",
+        234: "Dbl Crop Durum Wht/Sorghum", 235: "Dbl Crop Barley/Sorghum",
+        236: "Dbl Crop WinWht/Sorghum", 237: "Dbl Crop Barley/Corn",
+        238: "Dbl Crop WinWht/Cotton", 239: "Dbl Crop Soybeans/Cotton",
+        240: "Dbl Crop Soybeans/Oats", 241: "Dbl Crop Corn/Soybeans",
+        242: "Blueberries", 243: "Cabbage", 244: "Cauliflower",
+        245: "Celery", 246: "Radishes", 247: "Turnips",
+        248: "Eggplants", 249: "Gourds", 250: "Cranberries",
+        254: "Dbl Crop Barley/Soybeans",
     }
 
-    center_lat = (bbox[1] + bbox[3]) / 2
-    center_lon = (bbox[0] + bbox[2]) / 2
-    # Small bbox around center — ~200m square
-    d = 0.001
-    wms_bbox = f"{center_lon - d},{center_lat - d},{center_lon + d},{center_lat + d}"
+    # Use full AOI bbox at 200x200 resolution to match scene grid
+    wms_bbox = f"{bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]}"
 
     # Try requested year first, then fall back to previous years
     for try_year in [year, year - 1, year - 2]:
@@ -160,7 +200,7 @@ def fetch_cropscape_labels(bbox: list[float], year: int) -> dict:
         url = (
             "https://nassgeodata.gmu.edu/CropScapeService/wms_cdlall.cgi"
             f"?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS={layer}"
-            f"&SRS=EPSG:4326&BBOX={wms_bbox}&WIDTH=5&HEIGHT=5&FORMAT=image/tiff"
+            f"&SRS=EPSG:4326&BBOX={wms_bbox}&WIDTH=200&HEIGHT=200&FORMAT=image/tiff"
         )
         try:
             resp = httpx.get(url, timeout=30)
@@ -223,6 +263,48 @@ def build_timeseries_metadata(items, bbox: list[float], target_size: int = 200) 
     }
 
 
+def search_landsat(bbox: list[float], target_date: str, max_days: int = 10) -> list:
+    """Search for Landsat scenes near a target date for thermal data."""
+    from datetime import timedelta
+    target_dt = datetime.strptime(target_date, "%Y-%m-%d")
+    start = (target_dt - timedelta(days=max_days)).strftime("%Y-%m-%d")
+    end = (target_dt + timedelta(days=max_days)).strftime("%Y-%m-%d")
+    catalog = pystac_client.Client.open(STAC_URL, modifier=planetary_computer.sign_inplace)
+    search = catalog.search(
+        collections=[LANDSAT_COLLECTION],
+        bbox=bbox,
+        datetime=f"{start}/{end}",
+        query={"eo:cloud_cover": {"lt": 30}},
+        max_items=10,
+    )
+    items = sorted(
+        search.items(),
+        key=lambda it: abs((it.datetime.replace(tzinfo=None) - target_dt).days),
+    )
+    return items
+
+
+def fetch_landsat_thermal(item, bbox: list[float], target_shape: tuple[int, int]) -> np.ndarray:
+    """Fetch Landsat surface temperature, reproject to match Sentinel-2 grid, return in Kelvin."""
+    href = item.assets[LANDSAT_THERMAL_ASSET].href
+    dst_transform = _target_transform(bbox, target_shape)
+    dst_crs = "EPSG:4326"
+    with rasterio.open(href) as src:
+        dst = np.zeros(target_shape, dtype=np.float32)
+        reproject(
+            source=rasterio.band(src, 1),
+            destination=dst,
+            dst_transform=dst_transform,
+            dst_crs=dst_crs,
+            resampling=Resampling.bilinear,
+        )
+    # Convert DN to Kelvin
+    lst_kelvin = dst * LANDSAT_ST_SCALE + LANDSAT_ST_OFFSET
+    # Mask invalid pixels (nodata = 0 in source → offset value in output)
+    lst_kelvin[dst == 0] = np.nan
+    return lst_kelvin
+
+
 def main():
     parser = argparse.ArgumentParser(description="Fetch real Sentinel-2 data from Planetary Computer")
     parser.add_argument("--lat", type=float, default=DEFAULT_LAT, help="Center latitude")
@@ -279,6 +361,27 @@ def main():
         print(f"Saved: {args.scene_id}_baseline_bands.npy")
         has_baseline = True
 
+    # --- Fetch Landsat thermal (surface temperature) ---
+    print(f"\nSearching for Landsat thermal data near {current_item.datetime.strftime('%Y-%m-%d')}...")
+    landsat_items = search_landsat(bbox, current_item.datetime.strftime("%Y-%m-%d"))
+    landsat_item = None
+    landsat_date = None
+    if landsat_items:
+        landsat_item = landsat_items[0]
+        landsat_date = landsat_item.datetime.strftime("%Y-%m-%d")
+        day_offset = abs((landsat_item.datetime.replace(tzinfo=None) - current_item.datetime.replace(tzinfo=None)).days)
+        print(f"  Best match: {landsat_item.id} ({landsat_date}, {day_offset}d offset, cloud={landsat_item.properties.get('eo:cloud_cover', '?')}%)")
+        print("  Fetching thermal band (lwir11)...")
+        lst = fetch_landsat_thermal(landsat_item, bbox, (args.target_pixels, args.target_pixels))
+        valid_frac = (~np.isnan(lst)).mean()
+        print(f"  LST range: {np.nanmin(lst):.1f}–{np.nanmax(lst):.1f} K, valid pixels: {valid_frac:.1%}")
+        # Save thermal band into the main bands file
+        current_bands["LST"] = lst
+        np.save(SCENES_DIR / f"{args.scene_id}_bands.npy", current_bands)
+        print(f"  Added LST band to {args.scene_id}_bands.npy")
+    else:
+        print("  No Landsat scenes found within ±10 days")
+
     # --- Build timeseries from all available scenes ---
     print(f"\nBuilding NDVI timeseries from {len(items)} scenes...")
     timeseries = build_timeseries_metadata(items, bbox, args.target_pixels)
@@ -311,7 +414,7 @@ def main():
         "center_lat": args.lat,
         "center_lon": args.lon,
         "aoi_size_m": args.size,
-        "bands": BAND_IDS,
+        "bands": BAND_IDS + (["LST"] if landsat_item else []),
         "shape": [args.target_pixels, args.target_pixels],
         "pixel_size_m": round(args.size / args.target_pixels, 1),
         "source": "Sentinel-2 L2A via Microsoft Planetary Computer",
@@ -321,6 +424,14 @@ def main():
         "baseline_scene_id": baseline_item.id if baseline_item else None,
         "timeseries": ts_compat,
         "ground_truth": cropscape,
+        "landsat_thermal": {
+            "available": landsat_item is not None,
+            "scene_id": landsat_item.id if landsat_item else None,
+            "date": landsat_date,
+            "band_key": "LST",
+            "unit": "Kelvin",
+            "source": "Landsat Collection 2 Level 2 (lwir11 / TIRS Band 10)",
+        },
     }
     meta_path = SCENES_DIR / f"{args.scene_id}_metadata.json"
     meta_path.write_text(json.dumps(meta, indent=2))
