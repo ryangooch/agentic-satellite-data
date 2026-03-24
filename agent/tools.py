@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 
 from agent.types import (
-    BoundingBox, NDVIResult, NDWIResult, EVIResult,
+    BoundingBox, NDVIResult, NDWIResult, EVIResult, CWSIResult,
     TimeseriesResult, AnomalyResult, DiffResult,
 )
 from agent import scene as _scene
@@ -138,6 +138,80 @@ def compute_evi(region: BoundingBox) -> EVIResult:
     return EVIResult(
         success=True, evi_array=evi, mean=mean_val, std=std_val,
         low_fraction=low_frac, image_path=image_path, summary=summary,
+    )
+
+
+# Crop-specific VPD baselines (kPa) for empirical CWSI
+# Based on Idso et al. (1981) and Jackson et al. (1981)
+_CWSI_BASELINES = {
+    "almond":  {"vpd_lower": 1.0, "vpd_upper": 4.5},
+    "corn":    {"vpd_lower": 0.8, "vpd_upper": 3.5},
+    "cotton":  {"vpd_lower": 1.2, "vpd_upper": 5.0},
+    "grape":   {"vpd_lower": 0.9, "vpd_upper": 4.0},
+    "tomato":  {"vpd_lower": 0.8, "vpd_upper": 3.8},
+}
+
+
+def compute_cwsi(region: BoundingBox, air_temp_f: float, vpd_kpa: float,
+                 crop_type: str = "almond") -> CWSIResult:
+    """Compute CWSI (Crop Water Stress Index) using empirical VPD method.
+
+    Combines weather-derived VPD with NDVI as a spatial proxy for
+    transpiration to produce a spatially-distributed CWSI map.
+
+    Get air_temp_f and vpd_kpa from the get_cwsi_weather_data MCP tool first.
+
+    CWSI ranges 0-1: 0 = no stress, 1 = maximum stress.
+    Values > 0.5 indicate significant water stress.
+    """
+    crop = crop_type.lower()
+    if crop not in _CWSI_BASELINES:
+        return CWSIResult(
+            success=False,
+            error_message=f"Unknown crop type {crop_type!r}. Choose from: {', '.join(_CWSI_BASELINES)}.",
+        )
+
+    bl = _CWSI_BASELINES[crop]
+    base_cwsi = max(0.0, min(1.0, (vpd_kpa - bl["vpd_lower"]) / (bl["vpd_upper"] - bl["vpd_lower"])))
+
+    # Use NDVI as spatial modulator: lower NDVI → higher stress
+    ndvi = _compute_index_array("ndvi", region)
+    ndvi_norm = np.clip((ndvi - 0.1) / (0.8 - 0.1), 0, 1)  # normalize to 0-1
+
+    # Spatial CWSI: base stress adjusted by vegetation health
+    # Healthy vegetation (high NDVI) can transpire → lower CWSI
+    # Stressed vegetation (low NDVI) cannot transpire → higher CWSI
+    cwsi = np.clip(base_cwsi + (1 - ndvi_norm) * 0.3 - ndvi_norm * 0.15, 0, 1)
+
+    mean_val = float(cwsi.mean())
+    std_val = float(cwsi.std())
+    high_frac = float((cwsi > 0.5).mean())
+
+    image_path = _save_image(
+        cwsi, f"CWSI (mean={mean_val:.3f})", "cwsi.png", vmin=0.0, vmax=1.0
+    )
+
+    if mean_val > 0.6:
+        status = "HIGH water stress — irrigation likely needed"
+    elif mean_val > 0.4:
+        status = "moderate water stress — monitor closely"
+    elif mean_val > 0.2:
+        status = "mild stress — within acceptable range for most crops"
+    else:
+        status = "low stress — crop is well-watered"
+
+    summary = (
+        f"CWSI for rows {region.row_min}-{region.row_max}, "
+        f"cols {region.col_min}-{region.col_max} ({crop_type}): "
+        f"mean={mean_val:.3f}, std={std_val:.3f}. "
+        f"Pixels above 0.5 (stressed): {high_frac:.1%}. "
+        f"VPD={vpd_kpa:.2f} kPa, Tair={air_temp_f:.1f}F. "
+        f"Status: {status}."
+    )
+    return CWSIResult(
+        success=True, cwsi_array=cwsi, mean=mean_val, std=std_val,
+        high_fraction=high_frac, vpd=vpd_kpa, air_temp_f=air_temp_f,
+        image_path=image_path, summary=summary,
     )
 
 

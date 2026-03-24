@@ -1,7 +1,7 @@
 ---
 name: crop-health-analyst
-description: Analyze satellite imagery for crop health. Computes spectral indices (NDVI, NDWI, EVI), detects anomalous regions, compares against baselines, checks weather correlations, and produces a diagnostic report. Use when asked about crop health, vegetation stress, satellite analysis, or field conditions.
-allowed-tools: Bash(uv run python *), Read, Glob, mcp__weather__get_historical_weather, mcp__weather__get_forecast, mcp__weather__get_growing_season_summary
+description: Analyze satellite imagery for crop health. Computes spectral indices (NDVI, NDWI, EVI), calculates CWSI (Crop Water Stress Index) from weather-derived VPD, detects anomalous regions, compares against baselines, checks weather correlations, and produces a diagnostic report. Use when asked about crop health, vegetation stress, satellite analysis, or field conditions.
+allowed-tools: Bash(uv run python *), Read, Glob, mcp__weather__get_historical_weather, mcp__weather__get_forecast, mcp__weather__get_growing_season_summary, mcp__weather__get_cwsi_weather_data
 ---
 
 # Crop Health Analyst
@@ -75,6 +75,35 @@ print(result.summary)
 print(f'Image: {result.image_path}')
 "
 ```
+
+### Compute CWSI (crop water stress index)
+
+First get weather data for the scene date, then compute CWSI:
+
+```bash
+uv run python -c "
+from agent.scene import load_scene
+from agent.tools import compute_cwsi
+from agent.types import BoundingBox
+import json
+from pathlib import Path
+
+scene_id = '$1'
+if not scene_id or scene_id == '\$1':
+    scene_id = 'central_valley'
+load_scene(scene_id)
+meta = json.loads(Path(f'data/scenes/{scene_id}_metadata.json').read_text())
+H, W = meta['shape']
+
+# Use air_temp_f and vpd_kpa from get_cwsi_weather_data MCP tool
+result = compute_cwsi(BoundingBox(0, H, 0, W), air_temp_f=95.0, vpd_kpa=2.8, crop_type='almond')
+print(result.summary)
+print(f'Image: {result.image_path}')
+"
+```
+
+Before running, call `get_cwsi_weather_data` MCP tool with the scene's lat/lon and date to get
+actual air_temp_f and vpd_kpa values. CWSI > 0.5 indicates significant water stress.
 
 ### Compute EVI (cross-check NDVI in dense canopy)
 

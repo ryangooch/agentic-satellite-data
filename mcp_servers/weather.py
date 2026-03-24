@@ -364,5 +364,122 @@ async def get_growing_season_summary(
     return "\n".join(lines)
 
 
+@mcp.tool()
+async def get_cwsi_weather_data(
+    latitude: float,
+    longitude: float,
+    date: str,
+) -> str:
+    """Get temperature and humidity data needed for CWSI (Crop Water Stress Index) calculation.
+
+    Fetches hourly temperature and relative humidity for midday hours (10am-3pm)
+    on the given date, computes VPD (vapor pressure deficit), and returns
+    the values needed to calculate empirical CWSI.
+
+    CWSI uses VPD to estimate crop water stress: higher VPD with low
+    transpiration (visible as low NDVI) indicates water stress.
+
+    Args:
+        latitude: Latitude in decimal degrees (e.g. 36.944)
+        longitude: Longitude in decimal degrees (e.g. -120.108)
+        date: Date to analyze (YYYY-MM-DD)
+    """
+    params = {
+        "latitude": latitude,
+        "longitude": longitude,
+        "start_date": date,
+        "end_date": date,
+        "hourly": ",".join([
+            "temperature_2m",
+            "relative_humidity_2m",
+        ]),
+        "temperature_unit": "fahrenheit",
+        "timezone": "America/Los_Angeles",
+    }
+
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(OPEN_METEO_HISTORICAL, params=params, timeout=30)
+        resp.raise_for_status()
+        data = resp.json()
+
+    hourly = data.get("hourly", {})
+    times = hourly.get("time", [])
+    temps_f = hourly.get("temperature_2m", [])
+    rh_vals = hourly.get("relative_humidity_2m", [])
+
+    if not times:
+        return f"No hourly data available for ({latitude}, {longitude}) on {date}."
+
+    # Filter to midday hours (10:00-15:00) when CWSI is most meaningful
+    midday_temps_f = []
+    midday_rh = []
+    for i, t in enumerate(times):
+        hour = int(t.split("T")[1].split(":")[0])
+        if 10 <= hour <= 15 and temps_f[i] is not None and rh_vals[i] is not None:
+            midday_temps_f.append(temps_f[i])
+            midday_rh.append(rh_vals[i])
+
+    if not midday_temps_f:
+        return f"No midday data available for ({latitude}, {longitude}) on {date}."
+
+    # Compute VPD for each midday hour
+    # VPD = es - ea, where es = saturation vapor pressure, ea = actual vapor pressure
+    # es(T) = 0.6108 * exp(17.27 * T_c / (T_c + 237.3))  [kPa, T in Celsius]
+    vpd_vals = []
+    for tf, rh in zip(midday_temps_f, midday_rh):
+        tc = (tf - 32) * 5 / 9  # Convert F to C
+        es = 0.6108 * (2.71828 ** (17.27 * tc / (tc + 237.3)))
+        ea = es * (rh / 100)
+        vpd_vals.append(es - ea)
+
+    mean_temp_f = sum(midday_temps_f) / len(midday_temps_f)
+    mean_rh = sum(midday_rh) / len(midday_rh)
+    mean_vpd = sum(vpd_vals) / len(vpd_vals)
+    max_vpd = max(vpd_vals)
+
+    # Empirical CWSI estimates for common crops using VPD baselines
+    # VPD_lower = non-stressed baseline, VPD_upper = fully-stressed limit
+    # Based on Idso et al. (1981) and Jackson et al. (1981)
+    crop_baselines = {
+        "almond":  {"vpd_lower": 1.0, "vpd_upper": 4.5},
+        "corn":    {"vpd_lower": 0.8, "vpd_upper": 3.5},
+        "cotton":  {"vpd_lower": 1.2, "vpd_upper": 5.0},
+        "grape":   {"vpd_lower": 0.9, "vpd_upper": 4.0},
+        "tomato":  {"vpd_lower": 0.8, "vpd_upper": 3.8},
+    }
+
+    lines = [
+        f"CWSI Weather Data: ({latitude:.3f}, {longitude:.3f}) on {date}",
+        f"Midday hours (10am-3pm): {len(midday_temps_f)} observations",
+        "",
+        f"  Mean air temperature: {mean_temp_f:.1f}°F ({(mean_temp_f - 32) * 5 / 9:.1f}°C)",
+        f"  Mean relative humidity: {mean_rh:.0f}%",
+        f"  Mean VPD: {mean_vpd:.2f} kPa",
+        f"  Max VPD: {max_vpd:.2f} kPa",
+        "",
+        "Empirical CWSI estimates by crop type:",
+        f"  {'Crop':<10} {'CWSI':>6}  {'Status'}",
+        f"  {'-'*35}",
+    ]
+
+    for crop, bl in crop_baselines.items():
+        cwsi = max(0, min(1, (mean_vpd - bl["vpd_lower"]) / (bl["vpd_upper"] - bl["vpd_lower"])))
+        if cwsi < 0.3:
+            status = "low stress"
+        elif cwsi < 0.6:
+            status = "moderate stress"
+        else:
+            status = "HIGH STRESS"
+        lines.append(f"  {crop:<10} {cwsi:>5.2f}  {status}")
+
+    lines.extend([
+        "",
+        "Use these values with compute_cwsi tool:",
+        f"  air_temp_f={mean_temp_f:.1f}, vpd_kpa={mean_vpd:.2f}",
+    ])
+
+    return "\n".join(lines)
+
+
 if __name__ == "__main__":
     mcp.run()

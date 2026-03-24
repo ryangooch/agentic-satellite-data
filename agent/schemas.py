@@ -62,6 +62,36 @@ TOOL_SCHEMAS = [
         },
     },
     {
+        "name": "compute_cwsi",
+        "description": (
+            "Compute CWSI (Crop Water Stress Index) using the empirical VPD method. "
+            "Combines weather-derived VPD with NDVI as a spatial proxy for transpiration. "
+            "CWSI ranges 0-1: 0 = no stress, 1 = maximum stress. Values > 0.5 = significant stress. "
+            "IMPORTANT: Call the get_cwsi_weather_data MCP tool first to get air_temp_f and vpd_kpa values."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "region": _REGION,
+                "air_temp_f": {
+                    "type": "number",
+                    "description": "Midday air temperature in Fahrenheit (from get_cwsi_weather_data)",
+                },
+                "vpd_kpa": {
+                    "type": "number",
+                    "description": "Vapor pressure deficit in kPa (from get_cwsi_weather_data)",
+                },
+                "crop_type": {
+                    "type": "string",
+                    "enum": ["almond", "corn", "cotton", "grape", "tomato"],
+                    "description": "Crop type for stress baseline (default: almond)",
+                    "default": "almond",
+                },
+            },
+            "required": ["region", "air_temp_f", "vpd_kpa"],
+        },
+    },
+    {
         "name": "get_pixel_timeseries",
         "description": (
             "Return a time series of a spectral index at a specific pixel. "

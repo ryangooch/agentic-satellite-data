@@ -83,6 +83,20 @@ class AnomalyResult:
 
 
 @dataclass
+class CWSIResult:
+    success: bool
+    cwsi_array: Optional[np.ndarray] = None
+    mean: Optional[float] = None
+    std: Optional[float] = None
+    high_fraction: Optional[float] = None  # fraction of pixels > 0.5 (stressed)
+    vpd: Optional[float] = None            # vapor pressure deficit (kPa)
+    air_temp_f: Optional[float] = None     # air temperature (°F)
+    image_path: Optional[str] = None
+    summary: Optional[str] = None
+    error_message: Optional[str] = None
+
+
+@dataclass
 class DiffResult:
     success: bool
     diff_array: Optional[np.ndarray] = None

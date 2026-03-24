@@ -24,8 +24,9 @@ MODEL = "claude-sonnet-4-6"
 SYSTEM_PROMPT = """You are an autonomous crop health analyst working with satellite imagery.
 Your job is to assess crop health in a given region and produce a diagnostic report.
 
-You have access to tools that compute spectral indices (NDVI, NDWI, EVI), retrieve
-timeseries data, flag anomalous regions, compare current conditions to historical baselines,
+You have access to tools that compute spectral indices (NDVI, NDWI, EVI), calculate
+CWSI (Crop Water Stress Index) from weather-derived VPD, retrieve timeseries data,
+flag anomalous regions, compare current conditions to historical baselines,
 and search local agricultural reference documents for crop-specific context.
 
 **Your workflow**:
@@ -50,6 +51,7 @@ _TOOL_MAP = {
     "compute_ndvi": _tools.compute_ndvi,
     "compute_ndwi": _tools.compute_ndwi,
     "compute_evi": _tools.compute_evi,
+    "compute_cwsi": _tools.compute_cwsi,
     "get_pixel_timeseries": _tools.get_pixel_timeseries,
     "flag_anomalous_regions": _tools.flag_anomalous_regions,
     "compare_to_baseline": _tools.compare_to_baseline,

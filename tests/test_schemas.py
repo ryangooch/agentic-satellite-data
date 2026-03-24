@@ -3,7 +3,7 @@ from agent.schemas import TOOL_SCHEMAS
 
 
 def test_schema_count():
-    assert len(TOOL_SCHEMAS) == 7
+    assert len(TOOL_SCHEMAS) == 8
 
 
 def test_each_schema_has_required_keys():
@@ -17,7 +17,7 @@ def test_each_schema_has_required_keys():
 def test_tool_names():
     names = {s["name"] for s in TOOL_SCHEMAS}
     expected = {
-        "compute_ndvi", "compute_ndwi", "compute_evi",
+        "compute_ndvi", "compute_ndwi", "compute_evi", "compute_cwsi",
         "get_pixel_timeseries", "flag_anomalous_regions", "compare_to_baseline",
         "search_agricultural_context",
     }
