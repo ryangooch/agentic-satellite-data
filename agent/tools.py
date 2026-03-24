@@ -7,15 +7,23 @@ Design rules:
 - Return dataclasses with success/error fields instead of raising exceptions.
 - Return a human-readable `summary` string for the agent's context window.
 """
+
 import numpy as np
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from pathlib import Path
 
 from agent.types import (
-    BoundingBox, NDVIResult, NDWIResult, EVIResult, CWSIResult,
-    TimeseriesResult, AnomalyResult, DiffResult,
+    BoundingBox,
+    NDVIResult,
+    NDWIResult,
+    EVIResult,
+    CWSIResult,
+    TimeseriesResult,
+    AnomalyResult,
+    DiffResult,
 )
 from agent import scene as _scene
 from agent import rag as _rag
@@ -27,6 +35,7 @@ _IMAGES_DIR.mkdir(parents=True, exist_ok=True)
 # ---------------------------------------------------------------------------
 # Internal helper — shared band math (keeps tools flat)
 # ---------------------------------------------------------------------------
+
 
 def _compute_index_array(index: str, region: BoundingBox) -> np.ndarray:
     """Compute a spectral index array directly from bands. Not a public tool."""
@@ -45,8 +54,9 @@ def _compute_index_array(index: str, region: BoundingBox) -> np.ndarray:
     raise ValueError(f"Unknown index: {index!r}. Choose from ndvi, ndwi, evi.")
 
 
-def _save_image(arr: np.ndarray, title: str, filename: str,
-                vmin: float = -1, vmax: float = 1) -> str:
+def _save_image(
+    arr: np.ndarray, title: str, filename: str, vmin: float = -1, vmax: float = 1
+) -> str:
     path = _IMAGES_DIR / filename
     fig, ax = plt.subplots(figsize=(6, 6))
     im = ax.imshow(arr, cmap="RdYlGn", vmin=vmin, vmax=vmax)
@@ -61,6 +71,7 @@ def _save_image(arr: np.ndarray, title: str, filename: str,
 # Public tools
 # ---------------------------------------------------------------------------
 
+
 def compute_ndvi(region: BoundingBox) -> NDVIResult:
     """Compute NDVI = (NIR - Red) / (NIR + Red) for a region.
 
@@ -70,10 +81,12 @@ def compute_ndvi(region: BoundingBox) -> NDVIResult:
     mean_val = float(ndvi.mean())
     std_val = float(ndvi.std())
     low_frac = float((ndvi < 0.3).mean())
-    image_path = _save_image(
-        ndvi, f"NDVI (mean={mean_val:.3f})", "ndvi.png", vmin=-0.2, vmax=1.0
+    image_path = _save_image(ndvi, f"NDVI (mean={mean_val:.3f})", "ndvi.png", vmin=-0.2, vmax=1.0)
+    alert = (
+        "⚠️ Significant stressed area detected."
+        if low_frac > 0.1
+        else "Vegetation appears generally healthy."
     )
-    alert = "⚠️ Significant stressed area detected." if low_frac > 0.1 else "Vegetation appears generally healthy."
     summary = (
         f"NDVI for rows {region.row_min}–{region.row_max}, "
         f"cols {region.col_min}–{region.col_max}: "
@@ -81,8 +94,13 @@ def compute_ndvi(region: BoundingBox) -> NDVIResult:
         f"Pixels below 0.3 (stressed): {low_frac:.1%}. {alert}"
     )
     return NDVIResult(
-        success=True, ndvi_array=ndvi, mean=mean_val, std=std_val,
-        low_fraction=low_frac, image_path=image_path, summary=summary,
+        success=True,
+        ndvi_array=ndvi,
+        mean=mean_val,
+        std=std_val,
+        low_fraction=low_frac,
+        image_path=image_path,
+        summary=summary,
     )
 
 
@@ -95,24 +113,27 @@ def compute_ndwi(region: BoundingBox) -> NDWIResult:
     mean_val = float(ndwi.mean())
     std_val = float(ndwi.std())
     neg_frac = float((ndwi < 0).mean())
-    image_path = _save_image(
-        ndwi, f"NDWI (mean={mean_val:.3f})", "ndwi.png", vmin=-0.6, vmax=0.6
-    )
+    image_path = _save_image(ndwi, f"NDWI (mean={mean_val:.3f})", "ndwi.png", vmin=-0.6, vmax=0.6)
     if mean_val < -0.1:
-        status = "water-stressed (dry canopy)"
+        stress_msg = "water-stressed (dry canopy)"
     elif mean_val > 0.1:
-        status = "well-watered"
+        stress_msg = "well-watered"
     else:
-        status = "moderate moisture"
+        stress_msg = "moderate moisture"
     summary = (
         f"NDWI for rows {region.row_min}–{region.row_max}, "
         f"cols {region.col_min}–{region.col_max}: "
         f"mean={mean_val:.3f}, std={std_val:.3f}. "
-        f"Status: {status}. Negative-NDWI pixels: {neg_frac:.1%}."
+        f"stress_msg: {stress_msg}. Negative-NDWI pixels: {neg_frac:.1%}."
     )
     return NDWIResult(
-        success=True, ndwi_array=ndwi, mean=mean_val, std=std_val,
-        negative_fraction=neg_frac, image_path=image_path, summary=summary,
+        success=True,
+        ndwi_array=ndwi,
+        mean=mean_val,
+        std=std_val,
+        negative_fraction=neg_frac,
+        image_path=image_path,
+        summary=summary,
     )
 
 
@@ -125,9 +146,7 @@ def compute_evi(region: BoundingBox) -> EVIResult:
     mean_val = float(evi.mean())
     std_val = float(evi.std())
     low_frac = float((evi < 0.2).mean())
-    image_path = _save_image(
-        evi, f"EVI (mean={mean_val:.3f})", "evi.png", vmin=0.0, vmax=0.8
-    )
+    image_path = _save_image(evi, f"EVI (mean={mean_val:.3f})", "evi.png", vmin=0.0, vmax=0.8)
     summary = (
         f"EVI for rows {region.row_min}–{region.row_max}, "
         f"cols {region.col_min}–{region.col_max}: "
@@ -136,43 +155,50 @@ def compute_evi(region: BoundingBox) -> EVIResult:
         "EVI is less saturated than NDVI in dense canopy — use to verify NDVI findings."
     )
     return EVIResult(
-        success=True, evi_array=evi, mean=mean_val, std=std_val,
-        low_fraction=low_frac, image_path=image_path, summary=summary,
+        success=True,
+        evi_array=evi,
+        mean=mean_val,
+        std=std_val,
+        low_fraction=low_frac,
+        image_path=image_path,
+        summary=summary,
     )
 
 
 # Crop-specific VPD baselines (kPa) for empirical CWSI
 # Based on Idso et al. (1981) and Jackson et al. (1981)
 _CWSI_BASELINES = {
-    "almond":  {"vpd_lower": 1.0, "vpd_upper": 4.5},
-    "corn":    {"vpd_lower": 0.8, "vpd_upper": 3.5},
-    "cotton":  {"vpd_lower": 1.2, "vpd_upper": 5.0},
-    "grape":   {"vpd_lower": 0.9, "vpd_upper": 4.0},
-    "tomato":  {"vpd_lower": 0.8, "vpd_upper": 3.8},
+    "almond": {"vpd_lower": 1.0, "vpd_upper": 4.5},
+    "corn": {"vpd_lower": 0.8, "vpd_upper": 3.5},
+    "cotton": {"vpd_lower": 1.2, "vpd_upper": 5.0},
+    "grape": {"vpd_lower": 0.9, "vpd_upper": 4.0},
+    "tomato": {"vpd_lower": 0.8, "vpd_upper": 3.8},
 }
 
 
-def compute_cwsi(region: BoundingBox, air_temp_f: float, vpd_kpa: float,
-                 crop_type: str = "almond") -> CWSIResult:
+def compute_cwsi(
+    region: BoundingBox, air_temp_f: float, vpd_kpa: float, crop_type: str = "almond"
+) -> CWSIResult:
     """Compute CWSI (Crop Water Stress Index) using empirical VPD method.
 
     Combines weather-derived VPD with NDVI as a spatial proxy for
     transpiration to produce a spatially-distributed CWSI map.
-
-    Get air_temp_f and vpd_kpa from the get_cwsi_weather_data MCP tool first.
 
     CWSI ranges 0-1: 0 = no stress, 1 = maximum stress.
     Values > 0.5 indicate significant water stress.
     """
     crop = crop_type.lower()
     if crop not in _CWSI_BASELINES:
+        error_msg = f"Unknown crop type {crop_type!r}. Choose from: {', '.join(_CWSI_BASELINES)}."
         return CWSIResult(
             success=False,
-            error_message=f"Unknown crop type {crop_type!r}. Choose from: {', '.join(_CWSI_BASELINES)}.",
+            error_message=error_msg,
         )
 
     bl = _CWSI_BASELINES[crop]
-    base_cwsi = max(0.0, min(1.0, (vpd_kpa - bl["vpd_lower"]) / (bl["vpd_upper"] - bl["vpd_lower"])))
+    base_cwsi = max(
+        0.0, min(1.0, (vpd_kpa - bl["vpd_lower"]) / (bl["vpd_upper"] - bl["vpd_lower"]))
+    )
 
     # Use NDVI as spatial modulator: lower NDVI → higher stress
     ndvi = _compute_index_array("ndvi", region)
@@ -185,20 +211,20 @@ def compute_cwsi(region: BoundingBox, air_temp_f: float, vpd_kpa: float,
 
     mean_val = float(cwsi.mean())
     std_val = float(cwsi.std())
-    high_frac = float((cwsi > 0.5).mean())
+    HIGH_STRESS_THRESHOLD = 0.5
+    high_frac = float((cwsi > HIGH_STRESS_THRESHOLD).mean())
 
-    image_path = _save_image(
-        cwsi, f"CWSI (mean={mean_val:.3f})", "cwsi.png", vmin=0.0, vmax=1.0
-    )
+    image_path = _save_image(cwsi, f"CWSI (mean={mean_val:.3f})", "cwsi.png", vmin=0.0, vmax=1.0)
 
-    if mean_val > 0.6:
-        status = "HIGH water stress — irrigation likely needed"
+    stress_msg = "water stress: "
+    if mean_val > HIGH_STRESS_THRESHOLD:
+        stress_msg += "HIGH"
     elif mean_val > 0.4:
-        status = "moderate water stress — monitor closely"
+        stress_msg += "Moderate"
     elif mean_val > 0.2:
-        status = "mild stress — within acceptable range for most crops"
+        stress_msg += "Mild"
     else:
-        status = "low stress — crop is well-watered"
+        stress_msg += "Low"
 
     summary = (
         f"CWSI for rows {region.row_min}-{region.row_max}, "
@@ -206,12 +232,18 @@ def compute_cwsi(region: BoundingBox, air_temp_f: float, vpd_kpa: float,
         f"mean={mean_val:.3f}, std={std_val:.3f}. "
         f"Pixels above 0.5 (stressed): {high_frac:.1%}. "
         f"VPD={vpd_kpa:.2f} kPa, Tair={air_temp_f:.1f}F. "
-        f"Status: {status}."
+        f"stress_msg: {stress_msg}."
     )
     return CWSIResult(
-        success=True, cwsi_array=cwsi, mean=mean_val, std=std_val,
-        high_fraction=high_frac, vpd=vpd_kpa, air_temp_f=air_temp_f,
-        image_path=image_path, summary=summary,
+        success=True,
+        cwsi_array=cwsi,
+        mean=mean_val,
+        std=std_val,
+        high_fraction=high_frac,
+        vpd=vpd_kpa,
+        air_temp_f=air_temp_f,
+        image_path=image_path,
+        summary=summary,
     )
 
 
@@ -251,8 +283,9 @@ def get_pixel_timeseries(lat: float, lon: float, index: str) -> TimeseriesResult
     lines = [f"Timeseries for {index.upper()} at pixel ({row}, {col}):"]
     lines += [f"  {d}: {v:.3f}" for d, v in zip(dates, values)]
     lines.append(f"Trend: {trend}.")
-    return TimeseriesResult(success=True, dates=dates, values=values, index=index,
-                            summary="\n".join(lines))
+    return TimeseriesResult(
+        success=True, dates=dates, values=values, index=index, summary="\n".join(lines)
+    )
 
 
 def flag_anomalous_regions(index: str, threshold: float, direction: str) -> AnomalyResult:
@@ -279,7 +312,9 @@ def flag_anomalous_regions(index: str, threshold: float, direction: str) -> Anom
 
     if total_pixels == 0:
         return AnomalyResult(
-            success=True, regions=[], total_anomalous_pixels=0,
+            success=True,
+            regions=[],
+            total_anomalous_pixels=0,
             summary=f"No anomalous pixels found: {index.upper()} {direction} {threshold:.2f}.",
         )
 
@@ -293,11 +328,13 @@ def flag_anomalous_regions(index: str, threshold: float, direction: str) -> Anom
             cell_mask = mask[r0:r1, c0:c1]
             cell_count = int(cell_mask.sum())
             if cell_count > cell_h * cell_w * 0.3:
-                regions.append({
-                    "bbox": {"row_min": r0, "row_max": r1, "col_min": c0, "col_max": c1},
-                    "pixel_count": cell_count,
-                    "mean_value": round(float(arr[r0:r1, c0:c1][cell_mask].mean()), 3),
-                })
+                regions.append(
+                    {
+                        "bbox": {"row_min": r0, "row_max": r1, "col_min": c0, "col_max": c1},
+                        "pixel_count": cell_count,
+                        "mean_value": round(float(arr[r0:r1, c0:c1][cell_mask].mean()), 3),
+                    }
+                )
 
     lines = [
         f"Found {len(regions)} anomalous region(s) where {index.upper()} is {direction} {threshold:.2f}.",
@@ -311,7 +348,9 @@ def flag_anomalous_regions(index: str, threshold: float, direction: str) -> Anom
             f"{r['pixel_count']} px, mean {index.upper()}={r['mean_value']:.3f}."
         )
     return AnomalyResult(
-        success=True, regions=regions, total_anomalous_pixels=total_pixels,
+        success=True,
+        regions=regions,
+        total_anomalous_pixels=total_pixels,
         summary="\n".join(lines),
     )
 
@@ -333,8 +372,7 @@ def compare_to_baseline(region: BoundingBox, index: str) -> DiffResult:
             ),
         )
     if index not in ("ndvi", "ndwi", "evi"):
-        return DiffResult(success=False,
-                          error_message=f"Unsupported index {index!r}.")
+        return DiffResult(success=False, error_message=f"Unsupported index {index!r}.")
 
     current_arr = _compute_index_array(index, region)
 
@@ -354,15 +392,19 @@ def compare_to_baseline(region: BoundingBox, index: str) -> DiffResult:
     mean_change = float(diff.mean())
     degraded_frac = float((diff < -0.10).mean())
     image_path = _save_image(
-        diff, f"Delta{index.upper()} vs baseline", f"diff_{index}.png",
-        vmin=-0.5, vmax=0.5,
+        diff,
+        f"Delta{index.upper()} vs baseline",
+        f"diff_{index}.png",
+        vmin=-0.5,
+        vmax=0.5,
     )
     meta = _scene.get_metadata()
     baseline_date = meta.get("baseline_date", "unknown date")
     direction = "decreased" if mean_change < 0 else "increased"
     alert = (
         "Significant degradation since baseline."
-        if degraded_frac > 0.20 else "Minor changes since baseline."
+        if degraded_frac > 0.20
+        else "Minor changes since baseline."
     )
     summary = (
         f"Delta{index.upper()} vs baseline ({baseline_date}): "
@@ -370,8 +412,12 @@ def compare_to_baseline(region: BoundingBox, index: str) -> DiffResult:
         f"Pixels with >0.1 degradation: {degraded_frac:.1%}. {alert}"
     )
     return DiffResult(
-        success=True, diff_array=diff, mean_change=mean_change,
-        degraded_fraction=degraded_frac, image_path=image_path, summary=summary,
+        success=True,
+        diff_array=diff,
+        mean_change=mean_change,
+        degraded_fraction=degraded_frac,
+        image_path=image_path,
+        summary=summary,
     )
 
 
