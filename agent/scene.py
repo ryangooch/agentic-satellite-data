@@ -32,6 +32,17 @@ def load_scene(scene_id: str) -> None:
     )
 
 
+def _clamp_region(region: BoundingBox, shape: tuple) -> BoundingBox:
+    """Clamp a bounding box to valid array bounds."""
+    h, w = shape
+    return BoundingBox(
+        row_min=max(0, min(region.row_min, h)),
+        row_max=max(0, min(region.row_max, h)),
+        col_min=max(0, min(region.col_min, w)),
+        col_max=max(0, min(region.col_max, w)),
+    )
+
+
 def get_band(band_name: str, region: BoundingBox = None) -> np.ndarray:
     """Return a band array, optionally cropped to a BoundingBox."""
     if band_name not in _CURRENT_SCENE:
@@ -41,6 +52,7 @@ def get_band(band_name: str, region: BoundingBox = None) -> np.ndarray:
         )
     arr = _CURRENT_SCENE[band_name]
     if region is not None:
+        region = _clamp_region(region, arr.shape)
         arr = arr[region.row_min:region.row_max, region.col_min:region.col_max]
     return arr
 
@@ -56,6 +68,7 @@ def get_baseline_band(band_name: str, region: BoundingBox = None) -> np.ndarray:
         raise KeyError(f"Band {band_name!r} not in baseline scene.")
     arr = _CURRENT_BASELINE[band_name]
     if region is not None:
+        region = _clamp_region(region, arr.shape)
         arr = arr[region.row_min:region.row_max, region.col_min:region.col_max]
     return arr
 

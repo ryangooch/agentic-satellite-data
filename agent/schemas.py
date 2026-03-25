@@ -83,9 +83,9 @@ TOOL_SCHEMAS = [
                 },
                 "crop_type": {
                     "type": "string",
-                    "enum": ["almond", "corn", "cotton", "grape", "tomato"],
-                    "description": "Crop type for stress baseline (default: almond)",
-                    "default": "almond",
+                    "enum": ["alfalfa", "almond", "corn", "cotton", "grape", "tomato"],
+                    "description": "Crop type for stress baseline (default: alfalfa)",
+                    "default": "alfalfa",
                 },
             },
             "required": ["region", "air_temp_f", "vpd_kpa"],

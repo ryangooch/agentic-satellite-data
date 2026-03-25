@@ -168,6 +168,7 @@ def compute_evi(region: BoundingBox) -> EVIResult:
 # Crop-specific VPD baselines (kPa) for empirical CWSI
 # Based on Idso et al. (1981) and Jackson et al. (1981)
 _CWSI_BASELINES = {
+    "alfalfa": {"vpd_lower": 0.9, "vpd_upper": 4.0},
     "almond": {"vpd_lower": 1.0, "vpd_upper": 4.5},
     "corn": {"vpd_lower": 0.8, "vpd_upper": 3.5},
     "cotton": {"vpd_lower": 1.2, "vpd_upper": 5.0},
@@ -202,7 +203,7 @@ def _thermal_sharpen(lst_coarse: np.ndarray, ndvi_fine: np.ndarray, block: int =
 
 
 def compute_cwsi(
-    region: BoundingBox, air_temp_f: float, vpd_kpa: float, crop_type: str = "almond"
+    region: BoundingBox, air_temp_f: float, vpd_kpa: float, crop_type: str = "alfalfa"
 ) -> CWSIResult:
     """Compute CWSI (Crop Water Stress Index) using thermal data when available.
 

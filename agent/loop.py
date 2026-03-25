@@ -14,24 +14,31 @@ import os
 from typing import Optional
 
 import anthropic
+from dotenv import load_dotenv
 
 from agent.schemas import TOOL_SCHEMAS
 from agent.types import BoundingBox
 from agent import tools as _tools
+
+
+# grab anthropic api key from dotenv
+load_dotenv()
 
 MODEL = "claude-sonnet-4-6"
 
 SYSTEM_PROMPT = """You are an autonomous crop health analyst working with satellite imagery.
 Your job is to assess crop health in a given region and produce a diagnostic report.
 
-You have access to tools that compute spectral indices (NDVI, NDWI, EVI), calculate
-CWSI (Crop Water Stress Index) from weather-derived VPD, retrieve timeseries data,
-flag anomalous regions, compare current conditions to historical baselines,
-and search local agricultural reference documents for crop-specific context.
+You have access to tools that compute spectral indices (NDVI, EVI), calculate
+CWSI (Crop Water Stress Index) from weather-derived VPD and thermal/NDVI data,
+retrieve timeseries data, flag anomalous regions, compare current conditions to
+historical baselines, and search local agricultural reference documents for crop-specific context.
+
+The dominant crop in this area is alfalfa.
 
 **Your workflow**:
 1. Start with a broad assessment (e.g., compute NDVI for the region)
-2. If you detect anomalies or low values, investigate further using additional indices or timeseries
+2. If you detect stress, compute CWSI to assess water stress (call get_cwsi_weather_data first for weather inputs)
 3. Search agricultural context to understand what's normal for the local crops and conditions
 4. Explain your reasoning in plain text before each tool call. Describe what you observed and why
 you're choosing the next tool.

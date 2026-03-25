@@ -1,6 +1,6 @@
 ---
 name: crop-health-analyst
-description: Analyze satellite imagery for crop health. Computes spectral indices (NDVI, NDWI, EVI), calculates CWSI (Crop Water Stress Index) from weather-derived VPD, detects anomalous regions, compares against baselines, checks weather correlations, and produces a diagnostic report. Use when asked about crop health, vegetation stress, satellite analysis, or field conditions.
+description: Analyze satellite imagery for crop health. Computes spectral indices (NDVI, EVI), calculates CWSI (Crop Water Stress Index) from weather-derived VPD and thermal data, detects anomalous regions, compares against baselines, checks weather correlations, and produces a diagnostic report. Use when asked about crop health, vegetation stress, satellite analysis, or field conditions.
 allowed-tools: Bash(uv run python *), Read, Glob, mcp__weather__get_historical_weather, mcp__weather__get_forecast, mcp__weather__get_growing_season_summary, mcp__weather__get_cwsi_weather_data
 ---
 
@@ -54,31 +54,10 @@ Read the generated NDVI image to see the spatial pattern.
 
 ## Step 2: If NDVI shows stress (mean < 0.5 or low_fraction > 10%), investigate further
 
-### Compute NDWI (water stress indicator)
+### Compute CWSI (crop water stress index — primary water stress indicator)
 
-```bash
-uv run python -c "
-from agent.scene import load_scene
-from agent.tools import compute_ndwi
-from agent.types import BoundingBox
-import json
-from pathlib import Path
-
-scene_id = '$1'
-if not scene_id or scene_id == '\$1':
-    scene_id = 'central_valley'
-load_scene(scene_id)
-meta = json.loads(Path(f'data/scenes/{scene_id}_metadata.json').read_text())
-H, W = meta['shape']
-result = compute_ndwi(BoundingBox(0, H, 0, W))
-print(result.summary)
-print(f'Image: {result.image_path}')
-"
-```
-
-### Compute CWSI (crop water stress index)
-
-First get weather data for the scene date, then compute CWSI:
+First call `get_cwsi_weather_data` MCP tool with the scene's lat/lon and date to get
+actual air_temp_f and vpd_kpa values. Then compute CWSI:
 
 ```bash
 uv run python -c "
@@ -96,14 +75,13 @@ meta = json.loads(Path(f'data/scenes/{scene_id}_metadata.json').read_text())
 H, W = meta['shape']
 
 # Use air_temp_f and vpd_kpa from get_cwsi_weather_data MCP tool
-result = compute_cwsi(BoundingBox(0, H, 0, W), air_temp_f=95.0, vpd_kpa=2.8, crop_type='almond')
+result = compute_cwsi(BoundingBox(0, H, 0, W), air_temp_f=95.0, vpd_kpa=2.8, crop_type='alfalfa')
 print(result.summary)
 print(f'Image: {result.image_path}')
 "
 ```
 
-Before running, call `get_cwsi_weather_data` MCP tool with the scene's lat/lon and date to get
-actual air_temp_f and vpd_kpa values. CWSI > 0.5 indicates significant water stress.
+CWSI > 0.5 indicates significant water stress. The dominant crop in this area is alfalfa.
 
 ### Compute EVI (cross-check NDVI in dense canopy)
 
@@ -192,7 +170,7 @@ Use the RAG tool to get crop-specific interpretation guidance:
 uv run python -c "
 from agent.tools import search_agricultural_context
 # Tailor the query to what you've observed
-result = search_agricultural_context('what causes low NDVI in almonds during July in Central Valley?')
+result = search_agricultural_context('what causes low NDVI in alfalfa during late spring in Central Valley?')
 print(result.summary)
 "
 ```
@@ -210,7 +188,7 @@ Get the scene's coordinates from the metadata, then:
 3. **get_forecast**: Check upcoming conditions (if analyzing a recent scene)
 
 Look for:
-- Water deficit (precip << ET0) correlating with low NDWI
+- Water deficit (precip << ET0) correlating with high CWSI
 - Heat stress days (>100F) correlating with low NDVI
 - Sudden dry spells correlating with declining timeseries
 
@@ -219,7 +197,7 @@ Look for:
 After gathering all evidence, write a clear diagnostic report including:
 
 1. **Scene overview**: Location, date, data source
-2. **Vegetation health summary**: NDVI/EVI/NDWI statistics and spatial patterns
+2. **Vegetation health summary**: NDVI/EVI/CWSI statistics and spatial patterns
 3. **Areas of concern**: Specific regions with coordinates and severity
 4. **Temporal analysis**: Is stress new or chronic? Trending better or worse?
 5. **Weather correlation**: What weather conditions explain the observations?

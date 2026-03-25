@@ -31,7 +31,7 @@ We will leverage other Agentic AI patterns as well, including RAG, MCP, and Agen
 ## Agenda
 
 **Part 0 -- What is the Problem and why do we care?**
-- Overview of almond plantations and water stress
+- Overview of alfalfa plantations and water stress
 - Introduction to Satellites as a means of measurement of core properties
 
 **Part 1 -- Current State of Agentic AI**
@@ -40,11 +40,15 @@ We will leverage other Agentic AI patterns as well, including RAG, MCP, and Agen
 - When and how to use Agentic AI
 - The ReAct Pattern
 
-**Part 2 -- Satellites, Almonds, and Signal Processing**
-- Almond irrigation -- challenges and impact
+**Part 2 -- Satellites, alfalfa, and Signal Processing**
+- alfalfa irrigation -- challenges and impact
 - Sentinel-2 satellite imagery
 - Spectral indices: NDVI, EVI
 - Temperature indices: CWSI
+
+---
+
+## Agenda
 
 **Part 3 -- The How and Why of AI Agents**
 - When to reach for an Agent vs fixed, deterministic patterns
@@ -84,7 +88,7 @@ We will leverage other Agentic AI patterns as well, including RAG, MCP, and Agen
 
 ## Our Problem
 
-- Almond plantations need a ton of water, and are typically grown in water-starved areas (CA)
+- alfalfa plantations need a ton of water, and are typically grown in water-starved areas (CA)
 - Water resource management is critically important
 - How to know if we are watering "enough" and only "enough"?
 - Water scarce and stress are global issues, worsening due to Climate Change
@@ -230,6 +234,10 @@ sector.
 **Observation 2** (Result 1 / 1) The eastern sector extends into the High Plains and is called
 the Central Plains orogeny.
 
+---
+
+### ReAct Example, modified from the paper
+
 **Thought 3** The eastern sector of Colorado orogeny extends into the High Plains. So I
 need to search High Plains and find its elevation range.
 
@@ -284,7 +292,7 @@ is 1,800 to 7,000 ft.
     - SKILL.md -- defines workflow, YAML frontmatter
     - references/ -- sort of local RAG, houses relevant data artifacts
     - scripts/ -- actual code that can be called in the context of a Skill
-  - "progressive disclosure
+  - "progressive disclosure"
 
 ---
 
@@ -309,9 +317,9 @@ You get Agentic IDEs.
 
 ---
 
-## Back to Almonds
+## Back to alfalfa
 
-How can we use these agentic patterns to help us make irrigation decisions about almonds?
+How can we use these agentic patterns to help us make irrigation decisions about alfalfa?
 
 Approach:
 - Get data from satellite data providers
@@ -616,6 +624,14 @@ The agent:
 3. **Sensor fusion**: Combining Sentinel-2, SAR (Sentinel-1), thermal (ECOSTRESS), weather data
 4. **Evaluation**: How do you score an agent's reasoning process, not just its final answer?
 5. **Calibration**: Agents tend toward overconfidence -- how do you quantify their uncertainty?
+
+---
+
+## ZEPHYRUS: AN AGENTIC FRAMEWORK FOR WEATHER SCIENCE
+
+- An AI Agent that leverages foundation models, benchmarks, connections to real data, and tuned workflows
+to analyze and observe weather from datasets
+- Published in 2026 in ICLR
 
 ---
 

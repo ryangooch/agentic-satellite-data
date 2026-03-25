@@ -63,10 +63,11 @@ See [DEMO_WORKFLOW.md](DEMO_WORKFLOW.md) for the full live demo workflow.
 
 ## Notebooks
 
-- `00_data_exploration.ipynb` — Band visualization, orientation
-- `01_tools.ipynb` — Tools as plain Python functions
-- `02_agent_loop.ipynb` — The agent loop pattern (foundational)
-- `03_failure_modes.ipynb` — Where agents break (take-home)
+- `00_data_exploration.ipynb` -- band visualization, orientation
+- `01_tools.ipynb` -- tools as plain Python functions
+- `02_agent_loop.ipynb` -- the agent loop pattern
+- `03_failure_modes.ipynb` -- where agents break
+- `04_visualizations.ipynb` -- crop classification and water stress for real sentinel data
 
 ## Live Demo (Claude Code CLI)
 
