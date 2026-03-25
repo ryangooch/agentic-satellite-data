@@ -34,12 +34,15 @@ CWSI (Crop Water Stress Index) from weather-derived VPD and thermal/NDVI data,
 retrieve timeseries data, flag anomalous regions, compare current conditions to
 historical baselines, and search local agricultural reference documents for crop-specific context.
 
-The dominant crop in this area is alfalfa.
+The target crop is alfalfa. A crop mask has been applied using USDA CDL data so that
+all spectral indices and statistics are computed only over alfalfa pixels. Non-alfalfa
+pixels are excluded (NaN-masked). This means the values you see reflect alfalfa health
+specifically, not the full scene average.
 
 **Your workflow**:
 1. Start with a broad assessment (e.g., compute NDVI for the region)
 2. If you detect stress, compute CWSI to assess water stress (call get_cwsi_weather_data first for weather inputs)
-3. Search agricultural context to understand what's normal for the local crops and conditions
+3. Search agricultural context to understand what's normal for alfalfa and local conditions
 4. Explain your reasoning in plain text before each tool call. Describe what you observed and why
 you're choosing the next tool.
 5. Only call tools when warranted by your observations. You do not need to use all available tools.
@@ -138,15 +141,19 @@ def run_agent(
 
 if __name__ == "__main__":
     import argparse
-    from agent.scene import load_scene
+    from agent.scene import load_scene, set_crop_mask
 
     parser = argparse.ArgumentParser(description="Run the crop health agent")
     parser.add_argument("--scene", choices=["scene_a", "scene_b", "central_valley"], default="central_valley")
+    parser.add_argument("--crop", default="alfalfa", help="Crop to filter analysis to (default: alfalfa)")
     parser.add_argument("--mock", action="store_true", help="Use mock mode (no API calls)")
     parser.add_argument("--temperature", type=float, default=0)
     args = parser.parse_args()
 
     load_scene(args.scene)
+    if args.crop:
+        n = set_crop_mask(args.crop)
+        print(f"Crop filter: {args.crop} — {n:,} pixels")
 
     if args.mock:
         from agent.mock import run_mock_agent
