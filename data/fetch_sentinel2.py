@@ -38,8 +38,10 @@ DEFAULT_SIZE_M = 2000  # 2km x 2km AOI
 STAC_URL = "https://planetarycomputer.microsoft.com/api/stac/v1"
 
 # Landsat Collection 2 Level 2 surface temperature band
+# atmos corrected
 LANDSAT_COLLECTION = "landsat-c2-l2"
 LANDSAT_THERMAL_ASSET = "lwir11"  # TIRS Band 10 (10.9 µm)
+# raw pixel values used to convert the digital numbers (DN) to Kelvin
 LANDSAT_ST_SCALE = 0.00341802  # DN to Kelvin scale factor
 LANDSAT_ST_OFFSET = 149.0  # DN to Kelvin offset
 
