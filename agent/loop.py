@@ -17,7 +17,7 @@ import anthropic
 from dotenv import load_dotenv
 
 from agent.schemas import TOOL_SCHEMAS
-from agent.types import BoundingBox
+from agent.models import BoundingBox
 from agent import tools as _tools
 
 

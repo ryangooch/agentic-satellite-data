@@ -232,3 +232,14 @@ def search_agricultural_context(query: str, top_k: int = 3) -> RAGResult:
         lines.append("")
 
     return RAGResult(success=True, chunks=chunks, summary="\n".join(lines))
+
+
+if __name__ == "__main__":
+    rag_index = _get_index()
+
+    print(rag_index.chunks[0])
+
+    results: RAGResult = search_agricultural_context(query="alfalfa coefficient")
+
+    for res in results.chunks:
+        print(res)

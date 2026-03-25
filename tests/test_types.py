@@ -1,6 +1,6 @@
 # tests/test_types.py
 import numpy as np
-from agent.types import (
+from agent.models import (
     BoundingBox, NDVIResult, NDWIResult, EVIResult,
     TimeseriesResult, AnomalyResult, DiffResult,
 )

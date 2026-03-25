@@ -2,7 +2,7 @@
 import pytest
 import numpy as np
 from agent.scene import load_scene
-from agent.types import BoundingBox
+from agent.models import BoundingBox
 from agent.tools import (
     compute_ndvi, compute_ndwi, compute_evi,
     get_pixel_timeseries, flag_anomalous_regions, compare_to_baseline,

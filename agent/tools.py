@@ -15,7 +15,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from pathlib import Path
 
-from agent.types import (
+from agent.models import (
     BoundingBox,
     NDVIResult,
     NDWIResult,

@@ -7,7 +7,9 @@ Tools access bands via `get_band()` rather than reading disk directly.
 import json
 import numpy as np
 from pathlib import Path
-from agent.types import BoundingBox
+from typing import Optional
+
+from agent.models import BoundingBox
 
 _CURRENT_SCENE: dict = {}
 _CURRENT_META: dict = {}
@@ -43,7 +45,7 @@ def _clamp_region(region: BoundingBox, shape: tuple) -> BoundingBox:
     )
 
 
-def get_band(band_name: str, region: BoundingBox = None) -> np.ndarray:
+def get_band(band_name: str, region: Optional[BoundingBox] = None) -> np.ndarray:
     """Return a band array, optionally cropped to a BoundingBox."""
     if band_name not in _CURRENT_SCENE:
         raise KeyError(
@@ -57,7 +59,7 @@ def get_band(band_name: str, region: BoundingBox = None) -> np.ndarray:
     return arr
 
 
-def get_baseline_band(band_name: str, region: BoundingBox = None) -> np.ndarray:
+def get_baseline_band(band_name: str, region: Optional[BoundingBox] = None) -> np.ndarray:
     """Return a baseline band array. Raises FileNotFoundError if no baseline exists."""
     if not _CURRENT_BASELINE:
         raise FileNotFoundError(

@@ -2,7 +2,7 @@
 import pytest
 import numpy as np
 from agent.scene import load_scene, get_band, get_baseline_band, get_metadata, get_timeseries_ndvi, scene_shape
-from agent.types import BoundingBox
+from agent.models import BoundingBox
 
 
 @pytest.fixture(autouse=True)

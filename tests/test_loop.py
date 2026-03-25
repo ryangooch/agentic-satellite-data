@@ -3,7 +3,7 @@ import pytest
 from unittest.mock import MagicMock, patch
 from agent.loop import run_agent, dispatch_tool
 from agent.scene import load_scene
-from agent.types import BoundingBox
+from agent.models import BoundingBox
 
 
 @pytest.fixture(autouse=True)
