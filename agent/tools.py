@@ -37,6 +37,15 @@ _IMAGES_DIR.mkdir(parents=True, exist_ok=True)
 # ---------------------------------------------------------------------------
 
 
+def _nan_frac(arr: np.ndarray, condition: np.ndarray) -> float:
+    """Fraction of non-NaN pixels meeting a condition (handles crop masking)."""
+    valid = ~np.isnan(arr)
+    n_valid = valid.sum()
+    if n_valid == 0:
+        return 0.0
+    return float(condition[valid].sum() / n_valid)
+
+
 def _compute_index_array(index: str, region: BoundingBox) -> np.ndarray:
     """Compute a spectral index array directly from bands. Not a public tool."""
     nir = _scene.get_band("B08", region)
@@ -55,11 +64,16 @@ def _compute_index_array(index: str, region: BoundingBox) -> np.ndarray:
 
 
 def _save_image(
-    arr: np.ndarray, title: str, filename: str, vmin: float = -1, vmax: float = 1
+    arr: np.ndarray,
+    title: str,
+    filename: str,
+    vmin: float = -1,
+    vmax: float = 1,
+    cmap: str = "RdYlGn",
 ) -> str:
     path = _IMAGES_DIR / filename
     fig, ax = plt.subplots(figsize=(6, 6))
-    im = ax.imshow(arr, cmap="RdYlGn", vmin=vmin, vmax=vmax)
+    im = ax.imshow(arr, cmap=cmap, vmin=vmin, vmax=vmax)
     plt.colorbar(im, ax=ax)
     ax.set_title(title)
     fig.savefig(path, dpi=72, bbox_inches="tight")
@@ -78,9 +92,9 @@ def compute_ndvi(region: BoundingBox) -> NDVIResult:
     Returns mean, std, fraction of pixels below 0.3 (stressed), and a rendered image path.
     """
     ndvi = _compute_index_array("ndvi", region)
-    mean_val = float(ndvi.mean())
-    std_val = float(ndvi.std())
-    low_frac = float((ndvi < 0.3).mean())
+    mean_val = float(np.nanmean(ndvi))
+    std_val = float(np.nanstd(ndvi))
+    low_frac = _nan_frac(ndvi, ndvi < 0.3)
     image_path = _save_image(ndvi, f"NDVI (mean={mean_val:.3f})", "ndvi.png", vmin=-0.2, vmax=1.0)
     alert = (
         "⚠️ Significant stressed area detected."
@@ -110,9 +124,9 @@ def compute_ndwi(region: BoundingBox) -> NDWIResult:
     Positive: canopy moisture present. Negative: water stress or dry soil.
     """
     ndwi = _compute_index_array("ndwi", region)
-    mean_val = float(ndwi.mean())
-    std_val = float(ndwi.std())
-    neg_frac = float((ndwi < 0).mean())
+    mean_val = float(np.nanmean(ndwi))
+    std_val = float(np.nanstd(ndwi))
+    neg_frac = _nan_frac(ndwi, ndwi < 0)
     image_path = _save_image(ndwi, f"NDWI (mean={mean_val:.3f})", "ndwi.png", vmin=-0.6, vmax=0.6)
     if mean_val < -0.1:
         stress_msg = "water-stressed (dry canopy)"
@@ -143,9 +157,9 @@ def compute_evi(region: BoundingBox) -> EVIResult:
     Less saturation than NDVI in dense canopy. Use to cross-check NDVI findings.
     """
     evi = _compute_index_array("evi", region)
-    mean_val = float(evi.mean())
-    std_val = float(evi.std())
-    low_frac = float((evi < 0.2).mean())
+    mean_val = float(np.nanmean(evi))
+    std_val = float(np.nanstd(evi))
+    low_frac = _nan_frac(evi, evi < 0.2)
     image_path = _save_image(evi, f"EVI (mean={mean_val:.3f})", "evi.png", vmin=0.0, vmax=0.8)
     summary = (
         f"EVI for rows {region.row_min}–{region.row_max}, "
@@ -184,9 +198,10 @@ def _thermal_sharpen(lst_coarse: np.ndarray, ndvi_fine: np.ndarray, block: int =
     the residual correction at fine resolution.  Based on Agam et al. (2007).
     """
     from scipy.ndimage import uniform_filter
+
     h, w = ndvi_fine.shape
     # Aggregate NDVI to coarse resolution to match LST
-    ndvi_coarse = uniform_filter(ndvi_fine, size=block, mode='nearest')
+    ndvi_coarse = uniform_filter(ndvi_fine, size=block, mode="nearest")
     # Fit linear regression: LST = a * NDVI + b (at coarse scale)
     valid = ~np.isnan(lst_coarse) & ~np.isnan(ndvi_coarse)
     if valid.sum() < 10:
@@ -258,12 +273,14 @@ def compute_cwsi(
         cwsi = np.clip(base_cwsi + (1 - ndvi_norm) * 0.3 - ndvi_norm * 0.15, 0, 1)
         method = "VPD+NDVI proxy (no thermal data)"
 
-    mean_val = float(cwsi.mean())
-    std_val = float(cwsi.std())
+    mean_val = float(np.nanmean(cwsi))
+    std_val = float(np.nanstd(cwsi))
     HIGH_STRESS_THRESHOLD = 0.5
-    high_frac = float((cwsi > HIGH_STRESS_THRESHOLD).mean())
+    high_frac = _nan_frac(cwsi, cwsi > HIGH_STRESS_THRESHOLD)
 
-    image_path = _save_image(cwsi, f"CWSI (mean={mean_val:.3f})", "cwsi.png", vmin=0.0, vmax=1.0)
+    image_path = _save_image(
+        cwsi, f"CWSI (mean={mean_val:.3f})", "cwsi.png", vmin=0.0, vmax=1.0, cmap="RdYlGn_r"
+    )
 
     stress_msg = "water stress: "
     if mean_val > HIGH_STRESS_THRESHOLD:
@@ -356,7 +373,8 @@ def flag_anomalous_regions(index: str, threshold: float, direction: str) -> Anom
     H, W = _scene.scene_shape()
     full = BoundingBox(0, H, 0, W)
     arr = _compute_index_array(index, full)
-    mask = arr < threshold if direction == "below" else arr > threshold
+    valid = ~np.isnan(arr)
+    mask = (arr < threshold if direction == "below" else arr > threshold) & valid
     total_pixels = int(mask.sum())
 
     if total_pixels == 0:
@@ -375,8 +393,9 @@ def flag_anomalous_regions(index: str, threshold: float, direction: str) -> Anom
             r0, r1 = gi * cell_h, (gi + 1) * cell_h
             c0, c1 = gj * cell_w, (gj + 1) * cell_w
             cell_mask = mask[r0:r1, c0:c1]
+            cell_valid = valid[r0:r1, c0:c1].sum()
             cell_count = int(cell_mask.sum())
-            if cell_count > cell_h * cell_w * 0.3:
+            if cell_valid > 0 and cell_count > cell_valid * 0.3:
                 regions.append(
                     {
                         "bbox": {"row_min": r0, "row_max": r1, "col_min": c0, "col_max": c1},
@@ -387,7 +406,7 @@ def flag_anomalous_regions(index: str, threshold: float, direction: str) -> Anom
 
     lines = [
         f"Found {len(regions)} anomalous region(s) where {index.upper()} is {direction} {threshold:.2f}.",
-        f"Total anomalous pixels: {total_pixels} ({total_pixels / (H * W):.1%} of scene).",
+        f"Total anomalous pixels: {total_pixels} ({total_pixels / max(valid.sum(), 1):.1%} of analyzed area).",
     ]
     for i, r in enumerate(regions, 1):
         bb = r["bbox"]
@@ -438,8 +457,8 @@ def compare_to_baseline(region: BoundingBox, index: str) -> DiffResult:
         baseline_arr = np.clip(2.5 * (base_nir - base_red) / (denom + 1e-8), -1.0, 1.0)
 
     diff = current_arr - baseline_arr
-    mean_change = float(diff.mean())
-    degraded_frac = float((diff < -0.10).mean())
+    mean_change = float(np.nanmean(diff))
+    degraded_frac = _nan_frac(diff, diff < -0.10)
     image_path = _save_image(
         diff,
         f"Delta{index.upper()} vs baseline",

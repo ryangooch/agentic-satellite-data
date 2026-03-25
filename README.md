@@ -26,7 +26,7 @@ This project teaches three modern agentic patterns through a single domain
 │  Claude Code CLI                                    │
 │                                                     │
 │  /crop-health-analyst                               │
-│    ├── Spectral tools (NDVI, NDWI, EVI, anomalies) │
+│    ├── Spectral tools (NDVI, CWSI, EVI, anomalies)  │
 │    ├── RAG search (county ag reports, UCCE guides)  │
 │    └── MCP weather server (Open-Meteo)              │
 │                                                     │

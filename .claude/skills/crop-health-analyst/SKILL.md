@@ -15,6 +15,12 @@ uv run python .claude/skills/crop-health-analyst/scripts/<script>.py <args>
 
 The scripts use `PYTHONPATH=.` implicitly (uv handles this). The dominant crop in this area is alfalfa.
 
+## Crop Filtering
+
+**Always use `--crop alfalfa`** on all scripts to isolate the analysis to alfalfa pixels only. This uses the USDA CDL (Cropland Data Layer) to mask out non-alfalfa pixels before computing indices, giving accurate stress and irrigation metrics for the target crop rather than scene-wide averages diluted by other land cover.
+
+The `--crop` flag can appear anywhere in the argument list. Available crops: alfalfa, almonds, corn, cotton, grapes, tomatoes, and others.
+
 ## Step 1: Discover scenes and compute NDVI
 
 ```bash
@@ -23,7 +29,7 @@ uv run python .claude/skills/crop-health-analyst/scripts/list_scenes.py
 
 Pick the relevant scene, then compute NDVI:
 ```bash
-uv run python .claude/skills/crop-health-analyst/scripts/compute_index.py <scene_id> ndvi
+uv run python .claude/skills/crop-health-analyst/scripts/compute_index.py <scene_id> ndvi --crop alfalfa
 ```
 
 Read the generated NDVI image (`data/images/ndvi.png`) to see spatial patterns.
@@ -34,18 +40,18 @@ Run these three analyses. They can be run in parallel since they are independent
 
 **CWSI** (primary water stress indicator): First call `get_cwsi_weather_data` MCP tool with the scene's lat/lon and date to get actual `air_temp_f` and `vpd_kpa`. Then:
 ```bash
-uv run python .claude/skills/crop-health-analyst/scripts/compute_cwsi.py <scene_id> <air_temp_f> <vpd_kpa> [crop_type]
+uv run python .claude/skills/crop-health-analyst/scripts/compute_cwsi.py <scene_id> <air_temp_f> <vpd_kpa> [crop_type] --crop alfalfa
 ```
 CWSI > 0.5 = significant water stress.
 
 **EVI** (cross-checks NDVI in dense canopy where NDVI saturates):
 ```bash
-uv run python .claude/skills/crop-health-analyst/scripts/compute_index.py <scene_id> evi
+uv run python .claude/skills/crop-health-analyst/scripts/compute_index.py <scene_id> evi --crop alfalfa
 ```
 
 **Anomalous regions** (flags 4x4 grid cells where >30% of pixels exceed threshold):
 ```bash
-uv run python .claude/skills/crop-health-analyst/scripts/flag_anomalies.py <scene_id> [index] [threshold] [direction]
+uv run python .claude/skills/crop-health-analyst/scripts/flag_anomalies.py <scene_id> [index] [threshold] [direction] --crop alfalfa
 ```
 
 ## Step 3: Temporal trends
@@ -59,7 +65,7 @@ Use coordinates from anomaly results for stressed areas. Defaults: 50,50 and 150
 ## Step 4: Baseline comparison (if scene has baseline=True)
 
 ```bash
-uv run python .claude/skills/crop-health-analyst/scripts/compare_baseline.py <scene_id> [index]
+uv run python .claude/skills/crop-health-analyst/scripts/compare_baseline.py <scene_id> [index] --crop alfalfa
 ```
 
 ## Step 5: Agricultural context (RAG)
