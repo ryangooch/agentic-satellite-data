@@ -79,8 +79,14 @@ streaming, interactive experience that makes the agentic pattern click.
 Quick version:
 
 ```bash
-# 1. Fetch real data (do this before the lecture)
+# 1. Fetch real data
 uv run python data/fetch_sentinel2.py
+
+# this is the full command that was run for the project:
+uv run python data/fetch_sentinel2.py \
+    --lat 36.75 --lon -120.24 \
+    --current-date "2025-05-27" --baseline-date "2025-05-05" \
+    --size 2000
 
 # 2. Open Claude Code in this project directory
 claude
