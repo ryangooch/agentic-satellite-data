@@ -15,9 +15,10 @@ make demo          # Run Scene A in mock mode — no API key needed
 This project teaches three modern agentic patterns through a single domain
 (satellite crop health analysis):
 
-1. **Tool-calling agent loop** — the foundational pattern (`agent/loop.py`)
-2. **Claude Code Agent Skill** — wraps the analysis workflow for the CLI (`.claude/skills/`)
-3. **MCP server** — live weather data integration (`mcp_servers/weather.py`)
+1. **Tool-calling agent loop** -- the foundational pattern (`agent/loop.py`)
+2. **Claude Code Agent Skill** -- wraps the analysis workflow for the CLI (`.claude/skills/`)
+3. **MCP server** -- live weather data integration (`mcp_servers/weather.py`)
+4. **RAG** -- Retrieval augmented generation (`data/rag_documents`)
 
 ### Architecture
 
@@ -60,6 +61,8 @@ Madera, CA — including a current scene, a baseline from a different date,
 and an NDVI timeseries across 6+ cloud-free dates.
 
 See [DEMO_WORKFLOW.md](DEMO_WORKFLOW.md) for the full live demo workflow.
+
+Note: you will need to run the `04_visualizations.ipynb` notebook to get the crop classifications, for now
 
 ## Notebooks
 
